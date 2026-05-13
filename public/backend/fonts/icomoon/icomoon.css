@@ -1,0 +1,75 @@
+@font-face {
+  font-family: 'icomoon';
+  src:  url('icomoon.eot?vgovpm');
+  src:  url('icomoon.eot?vgovpm#iefix') format('embedded-opentype'),
+    url('icomoon.ttf?vgovpm') format('truetype'),
+    url('icomoon.woff?vgovpm') format('woff'),
+    url('icomoon.svg?vgovpm#icomoon') format('svg');
+  font-weight: normal;
+  font-style: normal;
+  font-display: block;
+}
+
+[class^="icon-"], [class*=" icon-"] {
+  /* use !important to prevent issues with browser extensions that change fonts */
+  font-family: 'icomoon' !important;
+  speak: never;
+  font-style: normal;
+  font-weight: normal;
+  font-variant: normal;
+  text-transform: none;
+  line-height: 1;
+
+  /* Better Font Rendering =========== */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.icon-body {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 20px;
+    padding: 20px;
+    background-color: #f7fbff;
+}
+
+.icon-body i {
+    width: 100%;
+    font-size: 35px;
+    padding: 30px 0px;
+    border-radius: 8px;
+    text-align: center;
+    background-color: #ffffff;
+    border: 1px solid #f3f3f3;
+}
+
+.icon-bag-2:before { content: "\e90f"; }
+.icon-briefcase:before { content: "\e910"; }
+.icon-call-calling1:before { content: "\e911"; }
+.icon-discount-shape:before { content: "\e912"; }
+.icon-document-text:before { content: "\e913"; }
+.icon-element-3:before { content: "\e914"; }
+.icon-gallery:before { content: "\e915"; }
+.icon-home:before { content: "\e916"; }
+.icon-messages-21:before { content: "\e917"; }
+.icon-more-square:before { content: "\e918"; }
+.icon-profile-circle:before { content: "\e919"; }
+.icon-row-vertical:before { content: "\e91a"; }
+.icon-send-2:before { content: "\e91b"; }
+.icon-tick-circle:before { content: "\e91c"; }
+.icon-ticket-discount:before { content: "\e91d"; }
+.icon-tick-square1:before { content: "\e91e"; }
+.icon-add-circle1:before { content: "\e91f"; }
+.icon-arrow-down:before { content: "\e921"; }
+.icon-bx-radio-circlesvg:before { content: "\e923"; }
+.icon-bx-radio-circle-markedsvg:before { content: "\e924"; }
+.icon-Call-Center:before { content: "\e925"; }
+.icon-card:before { content: "\e926"; }
+.icon-Chevron-Down---16px:before { content: "\e927"; }
+.icon-close-circle-bold:before { content: "\e929"; }
+.icon-cookie-bite:before { content: "\e92a"; }
+.icon-Edit:before { content: "\e92b"; }
+.icon-information:before { content: "\e92c"; }
+.icon-location1:before { content: "\e92d"; }
+.icon-reserve1:before { content: "\e92f"; }
+.icon-shop:before { content: "\e930"; }
