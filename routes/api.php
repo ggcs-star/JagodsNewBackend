@@ -147,14 +147,13 @@ Route::group(['prefix' => 'v1'], function () {
     Route::get('admin-commission-report',                       [AdminCommissionReportController::class, 'index']); //done
     Route::post('admin-commission-report',                      [AdminCommissionReportController::class, 'index']); //done
 
-        Route::get('cart', [CartController::class, 'index']);
+    Route::get('cart', [CartController::class, 'index']);
     Route::post('cart', [CartController::class, 'store']);
-    Route::get('cart/{id}', [CartController::class, 'remove']);
+    Route::get('cart/removeItem/{id}', [CartController::class, 'remove']);
+    Route::post('cart/clear', [CartController::class, 'clear']);
     Route::post('cart-quantity', [CartController::class, 'quantity']);
     Route::post('cart/apply-coupon', [CartController::class, 'applyCoupon']);
-    Route::post('cart/remove-coupon', [CartController::class, 'removeCoupon']);
-    Route::post('cart/update-order-type',[CartController::class, 'updateOrderType']);
-    Route::post('cart/update-location',[CartController::class, 'updateLocation']);
+    Route::post('cart/update', [CartController::class, 'update']);
 
     
     Route::resource('administrators',                         AdministratorController::class);

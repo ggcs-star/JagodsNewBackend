@@ -23,7 +23,7 @@ class OrderApiResource extends JsonResource
             'total'            => $this->total,
             'sub_total'        => $this->sub_total,
             'discount'         => $this->discount,
-            'surge_fee'        => $this->search_fee,
+            'surge_fee'        => $this->surge_fee,
             'handling_fee'     => $this->handling_fee,
             'packaging_fee'    => $this->packaging_fee,
             'gst_amount'       =>$this->gst_amount,

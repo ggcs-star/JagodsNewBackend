@@ -35,6 +35,7 @@ class SettingController extends BackendController
 
     public function siteSettingUpdate(Request $request)
     {
+      
 
         if (env('DEMO_MODE')) {
             return back()->withError('The site setting is disable for the demo');
@@ -604,6 +605,13 @@ class SettingController extends BackendController
             'free_delivery_radius'            => 'required|numeric',
             'charge_per_kilo'                 => 'required|numeric',
             'basic_delivery_charge'           => 'required|numeric',
+            'packaging_charge'                       => 'nullable|numeric',
+            'handling_charge'                        => 'nullable|numeric',
+            'surge_fee'                        => 'nullable|numeric',
+            'cart_note'                        => 'nullable|string|max:500',
+            'voucher_note'                       => 'nullable|string|max:500',
+            'high_order_amount_limit'             => 'nullable|numeric',
+            'high_order_delivery_charge'          => 'nullable|numeric',
         ];
     }
 

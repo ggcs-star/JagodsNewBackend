@@ -27,6 +27,7 @@ class MenuItem extends BaseModel implements HasMedia
         'order' => 'int',
         'creator_id' => 'int',
         'editor_id ' => 'int',
+        'max_cart_quantity' => 'int',
     ];
     protected $fakeColumns = [];
 

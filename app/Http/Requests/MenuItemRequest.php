@@ -36,6 +36,7 @@ class MenuItemRequest extends FormRequest
             'status'         => 'required|numeric',
             'description'    => 'nullable|string|max:1000',
             'image'          => 'image|mimes:jpeg,png,jpg|max:4096',
+            'max_cart_quantity' => ['required', 'integer', 'min:1'],
         ];
     }
 
