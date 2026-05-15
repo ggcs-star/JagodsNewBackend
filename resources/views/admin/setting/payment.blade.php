@@ -109,6 +109,16 @@
                                 <small class="db-field-alert">{{ $message }}</small>
                                 @enderror
                             </div>
+                            <div class="form-col-12 sm:form-col-6">
+                                <label class="db-field-title required" for="razorpay_secret">Razorpay Webhook Secret
+                                </label>
+                                <input name="razorpay_webhook_secret" id="razorpay_webhook_secret" type="text"
+                                    class="db-field-control @error('razorpay_webhook_secret') invalid @enderror"
+                                    value="{{ old('razorpay_webhook_secret', setting('razorpay_webhook_secret') ?? '') }}">
+                                @error('razorpay_webhook_secret')
+                                <small class="db-field-alert">{{ $message }}</small>
+                                @enderror
+                            </div>
                             <div class="form-col-12">
                                 <button class="db-btn text-white bg-primary">
                                     <i class="fa-solid fa-circle-check"></i>

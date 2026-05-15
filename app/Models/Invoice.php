@@ -9,16 +9,28 @@ use App\Traits\Uuids;
 class Invoice extends BaseModel
 {
     use Uuids;
-    protected $primaryKey = 'id'; // or null
-    protected $auditColumn       = true;
 
-    protected $casts = ['meta' => 'array'];
+    protected $primaryKey = 'id';
+
+    public $incrementing = false;
+
+    protected $keyType = 'string';
+
+    protected $auditColumn = true;
+
+    protected $fillable = [
+        'id',
+        'meta',
+    ];
+
+    protected $casts = [
+        'meta' => 'array',
+    ];
 
     public function order()
     {
         return $this->hasOne(Order::class);
     }
-
 
     public function transactions()
     {
@@ -26,7 +38,4 @@ class Invoice extends BaseModel
             ->where('source_balance_id', auth()->user()->id)
             ->where('type', TransactionType::PAYMENT);
     }
-
-
-
 }

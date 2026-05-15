@@ -35,7 +35,8 @@ use App\Http\Controllers\Api\v1\TransactionController;
 use App\Http\Controllers\Api\v1\WithdrawController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
-
+use App\Http\Controllers\Api\v1\CheckoutController;
+use App\Http\Controllers\Api\v1\WebhookController;
 /*
 |--------------------------------------------------------------------------
 | API Routes
@@ -49,103 +50,103 @@ use Illuminate\Support\Facades\Route;
 
 Route::group(['prefix' => 'v1'], function () {
 
-    Route::post('login',                                        [LoginController::class, 'action']);
-    Route::post('social-login',                                 [SocialLoginController::class, 'action']);
-    Route::post('logout',                                       [LogoutController::class, 'action']);
-    Route::post('reg',                                          [RegisterController::class, 'action']);
-    Route::post('forgot-password',                              [ForgotPasswordController::class, 'sendResetLinkEmail']);
+    Route::post('login', [LoginController::class, 'action']);
+    Route::post('social-login', [SocialLoginController::class, 'action']);
+    Route::post('logout', [LogoutController::class, 'action']);
+    Route::post('reg', [RegisterController::class, 'action']);
+    Route::post('forgot-password', [ForgotPasswordController::class, 'sendResetLinkEmail']);
     //push notification
-    Route::post('fcm-subscribe',                                [PushNotificationController::class, 'fcmSubscribe']);
-    Route::post('fcm-unsubscribe',                              [PushNotificationController::class, 'fcmUnsubscribe']);
+    Route::post('fcm-subscribe', [PushNotificationController::class, 'fcmSubscribe']);
+    Route::post('fcm-unsubscribe', [PushNotificationController::class, 'fcmUnsubscribe']);
 
-    Route::get('me',                                            [MeController::class, 'action']);
-    Route::get('refresh',                                       [MeController::class, 'refresh']);
-    Route::post('profile',                                      [MeController::class, 'update']);
-    Route::put('change-password',                               [MeController::class, 'changePassword']);
-    Route::put('device',                                        [MeController::class, 'device']);
-    Route::get('review/{id}',                                   [MeController::class, 'review']);
-    Route::post('review',                                       [MeController::class, 'saveReview']);
-    Route::get('report/{id}',                                   [MeController::class, 'reportCheck']);
-    Route::post('report',                                       [MeController::class, 'storeReport']);
+    Route::get('me', [MeController::class, 'action']);
+    Route::get('refresh', [MeController::class, 'refresh']);
+    Route::post('profile', [MeController::class, 'update']);
+    Route::put('change-password', [MeController::class, 'changePassword']);
+    Route::put('device', [MeController::class, 'device']);
+    Route::get('review/{id}', [MeController::class, 'review']);
+    Route::post('review', [MeController::class, 'saveReview']);
+    Route::get('report/{id}', [MeController::class, 'reportCheck']);
+    Route::post('report', [MeController::class, 'storeReport']);
 
-    Route::get('status/{name}/{flip?}',                         [StatusController::class, 'index']); //done
-    Route::get('status-order/{id}',                             [StatusController::class, 'getOrderStatus']); //done
+    Route::get('status/{name}/{flip?}', [StatusController::class, 'index']); //done
+    Route::get('status-order/{id}', [StatusController::class, 'getOrderStatus']); //done
 
-    Route::get('status/{name}/{flip?}',                         [StatusController::class, 'index']); //done
-    Route::get('settings',                                      [SettingController::class, 'index']); //done
+    Route::get('status/{name}/{flip?}', [StatusController::class, 'index']); //done
+    Route::get('settings', [SettingController::class, 'index']); //done
 
-    Route::get('banners',                                       [BannerController::class, 'index']);
-    Route::post('sort-banner',                                  [BannerController::class, 'sortBanner'])->name('sort.banner');
+    Route::get('banners', [BannerController::class, 'index']);
+    Route::post('sort-banner', [BannerController::class, 'sortBanner'])->name('sort.banner');
 
-    Route::get('category',                                      [CategoryController::class, 'index']);  //done
-    Route::get('category/{id}',                                 [CategoryController::class, 'index']);  //done
-    Route::get('category/{id}/show',                            [CategoryController::class, 'show']);   //done
+    Route::get('category', [CategoryController::class, 'index']);  //done
+    Route::get('category/{id}', [CategoryController::class, 'index']);  //done
+    Route::get('category/{id}/show', [CategoryController::class, 'show']);   //done
 
-    Route::get('address',                                       [AddressController::class, 'index']); //done
-    Route::post('address-store',                                [AddressController::class, 'store']); //done
-    Route::put('address-update/update/{id}',                    [AddressController::class, 'update']);
-    Route::delete('address-delete/{id}',                        [AddressController::class, 'destroy']); //done
+    Route::get('address', [AddressController::class, 'index']); //done
+    Route::post('address-store', [AddressController::class, 'store']); //done
+    Route::put('address-update/update/{id}', [AddressController::class, 'update']);
+    Route::delete('address-delete/{id}', [AddressController::class, 'destroy']); //done
 
-    Route::get('cuisine',                                       [CuisineController::class, 'index']); //done
-    Route::get('cuisine/{id}',                                  [CuisineController::class, 'index']); //done
-    Route::get('cuisine/{id}/show',                             [CuisineController::class, 'show']); //done
+    Route::get('cuisine', [CuisineController::class, 'index']); //done
+    Route::get('cuisine/{id}', [CuisineController::class, 'index']); //done
+    Route::get('cuisine/{id}/show', [CuisineController::class, 'show']); //done
 
-    Route::get('popular-restaurant',                            [PopularRestaurantController::class, 'index']); //done
-    Route::get('/restaurant/index/{id?}/{status?}/{applied?}',  [RestaurantController::class, 'index']); //done
-    Route::get('restaurant/{id}',                               [RestaurantController::class, 'show']); //done
-    Route::get('/search',                                       [SearchController::class, 'index']); //done
+    Route::get('popular-restaurant', [PopularRestaurantController::class, 'index']); //done
+    Route::get('/restaurant/index/{id?}/{status?}/{applied?}', [RestaurantController::class, 'index']); //done
+    Route::get('restaurant/{id}', [RestaurantController::class, 'show']); //done
+    Route::get('/search', [SearchController::class, 'index']); //done
 
-    Route::post('coupon',                                       [CouponController::class, 'apply']);
-    Route::post('generate-coupons',                             [CouponController::class,'generateCoupons']);
-    Route::get('restaurant-menuItem/menuItem',                  [MenuItemController::class, 'index']); //done
-    Route::get('restaurant-menuItem/menuItem/{id}',             [MenuItemController::class, 'index']); //done
-    Route::get('restaurant-menuItem/menuItem/{id}/show',        [MenuItemController::class, 'show']); //done
+    Route::post('coupon', [CouponController::class, 'apply']);
+    Route::post('generate-coupons', [CouponController::class, 'generateCoupons']);
+    Route::get('restaurant-menuItem/menuItem', [MenuItemController::class, 'index']); //done
+    Route::get('restaurant-menuItem/menuItem/{id}', [MenuItemController::class, 'index']); //done
+    Route::get('restaurant-menuItem/menuItem/{id}/show', [MenuItemController::class, 'show']); //done
 
-    Route::get('restaurant-table/table',                        [TableController::class, 'index']); //done
-    Route::get('restaurant-table/table/{id}',                   [TableController::class, 'show']); //done
-    Route::post('restaurant-table/table',                       [TableController::class, 'store']); //done
-    Route::put('restaurant-table/table/{id}',                   [TableController::class, 'update']); // done
-    Route::delete('restaurant-table/table/{id}',                [TableController::class, 'delete']); //done
+    Route::get('restaurant-table/table', [TableController::class, 'index']); //done
+    Route::get('restaurant-table/table/{id}', [TableController::class, 'show']); //done
+    Route::post('restaurant-table/table', [TableController::class, 'store']); //done
+    Route::put('restaurant-table/table/{id}', [TableController::class, 'update']); // done
+    Route::delete('restaurant-table/table/{id}', [TableController::class, 'delete']); //done
 
-    Route::get('restaurant-timeSlot/timeSlot',                  [TimeSlotController::class, 'index']); //done
+    Route::get('restaurant-timeSlot/timeSlot', [TimeSlotController::class, 'index']); //done
 
-    Route::get('withdraw',                                      [WithdrawController::class, 'index']); //done
+    Route::get('withdraw', [WithdrawController::class, 'index']); //done
 
-    Route::get('request-withdraw',                              [RequestWithdrawController::class, 'index']); //done
-    Route::post('request-withdraw',                             [RequestWithdrawController::class, 'store']); //done
-    Route::put('request-withdraw/{id}',                         [RequestWithdrawController::class, 'update']); //done
-    Route::delete('request-withdraw/{id}',                      [RequestWithdrawController::class, 'delete']); //done
+    Route::get('request-withdraw', [RequestWithdrawController::class, 'index']); //done
+    Route::post('request-withdraw', [RequestWithdrawController::class, 'store']); //done
+    Route::put('request-withdraw/{id}', [RequestWithdrawController::class, 'update']); //done
+    Route::delete('request-withdraw/{id}', [RequestWithdrawController::class, 'delete']); //done
     //reservation
-    Route::get('reservation',                                   [ReservationController::class, 'index']); //done
-    Route::post('restaurant/reservation/booking',               [ReservationController::class, 'store']); //done
-    Route::post('reservation/check',                            [ReservationController::class, 'check']); //done
-    Route::put('reservation/status/{id}',                       [ReservationController::class, 'update']); //done
+    Route::get('reservation', [ReservationController::class, 'index']); //done
+    Route::post('restaurant/reservation/booking', [ReservationController::class, 'store']); //done
+    Route::post('reservation/check', [ReservationController::class, 'check']); //done
+    Route::put('reservation/status/{id}', [ReservationController::class, 'update']); //done
 
-    Route::get('orders',                                        [OrderController::class, 'index']); //done
-    Route::post('orders',                                       [OrderController::class, 'store']); //done
-    Route::put('orders/{id}',                                   [OrderController::class, 'update']); //done
-    Route::get('orders/{id}/show',                              [OrderController::class, 'show']); //done
-    Route::post('orders/payment',                               [OrderController::class, 'orderPayment']); //done
-    Route::get('orders/{id}/download-attachment',               [OrderController::class, 'attachment']); //done
-    Route::get('orders/cancel/{id}',                            [OrderController::class, 'orderCancel']); //done
+    Route::get('orders', [OrderController::class, 'index']); //done
+    Route::post('orders', [OrderController::class, 'store']); //done
+    Route::put('orders/{id}', [OrderController::class, 'update']); //done
+    Route::get('orders/{id}/show', [OrderController::class, 'show']); //done
+    Route::post('orders/payment', [OrderController::class, 'orderPayment']); //done
+    Route::get('orders/{id}/download-attachment', [OrderController::class, 'attachment']); //done
+    Route::get('orders/cancel/{id}', [OrderController::class, 'orderCancel']); //done
 
-    Route::get('restaurant-order',                              [RestaurantOrderController::class, 'index']); //done
-    Route::get('restaurant-order/history',                      [RestaurantOrderController::class, 'history']); //done
-    Route::get('restaurant-order/{id}',                         [RestaurantOrderController::class, 'show']); //done
-    Route::put('restaurant-order/{id}',                         [RestaurantOrderController::class, 'update']); //done
-    Route::get('restaurant-reservation',                        [RestaurantReservationController::class, 'index']); //done
+    Route::get('restaurant-order', [RestaurantOrderController::class, 'index']); //done
+    Route::get('restaurant-order/history', [RestaurantOrderController::class, 'history']); //done
+    Route::get('restaurant-order/{id}', [RestaurantOrderController::class, 'show']); //done
+    Route::put('restaurant-order/{id}', [RestaurantOrderController::class, 'update']); //done
+    Route::get('restaurant-reservation', [RestaurantReservationController::class, 'index']); //done
 
-    Route::get('notification-order',                            [NotificationOrderController::class, 'index']); //done
-    Route::put('notification-order/{id}/update',                [NotificationOrderController::class, 'orderAccept']); //done
-    Route::put('notification-order-product-receive/{id}/update',[NotificationOrderController::class, 'OrderProductReceive']); //done
-    Route::put('notification-order-status/{id}/update',         [NotificationOrderController::class, 'orderStatus']); //done
-    Route::get('notification-order/{id}/show',                  [NotificationOrderController::class, 'show']); //done
-    Route::get('notification-order/history',                    [NotificationOrderController::class, 'history']); //done
-    Route::get('transactions',                                  [TransactionController::class, 'index']); //done
-    Route::get('restaurant-owner-sales-report',                 [RestaurantOwnerSalesReportController::class, 'index']); //done
-    Route::post('restaurant-owner-sales-report',                [RestaurantOwnerSalesReportController::class, 'index']); //done
-    Route::get('admin-commission-report',                       [AdminCommissionReportController::class, 'index']); //done
-    Route::post('admin-commission-report',                      [AdminCommissionReportController::class, 'index']); //done
+    Route::get('notification-order', [NotificationOrderController::class, 'index']); //done
+    Route::put('notification-order/{id}/update', [NotificationOrderController::class, 'orderAccept']); //done
+    Route::put('notification-order-product-receive/{id}/update', [NotificationOrderController::class, 'OrderProductReceive']); //done
+    Route::put('notification-order-status/{id}/update', [NotificationOrderController::class, 'orderStatus']); //done
+    Route::get('notification-order/{id}/show', [NotificationOrderController::class, 'show']); //done
+    Route::get('notification-order/history', [NotificationOrderController::class, 'history']); //done
+    Route::get('transactions', [TransactionController::class, 'index']); //done
+    Route::get('restaurant-owner-sales-report', [RestaurantOwnerSalesReportController::class, 'index']); //done
+    Route::post('restaurant-owner-sales-report', [RestaurantOwnerSalesReportController::class, 'index']); //done
+    Route::get('admin-commission-report', [AdminCommissionReportController::class, 'index']); //done
+    Route::post('admin-commission-report', [AdminCommissionReportController::class, 'index']); //done
 
     Route::get('cart', [CartController::class, 'index']);
     Route::post('cart', [CartController::class, 'store']);
@@ -155,11 +156,14 @@ Route::group(['prefix' => 'v1'], function () {
     Route::post('cart/apply-coupon', [CartController::class, 'applyCoupon']);
     Route::post('cart/update', [CartController::class, 'update']);
 
+    Route::post('checkout', [CheckoutController::class, 'checkout']);
+    Route::post('payment/verify', [CheckoutController::class, 'verifyPayment']);
+    Route::post('webhooks/razorpay', [WebhookController::class, 'razorpay']);
     
-    Route::resource('administrators',                         AdministratorController::class);
-    Route::get('get-administrators',                            [AdministratorController::class, 'getAdministrators'])->name('administrators.get-administrators');
+    Route::resource('administrators', AdministratorController::class);
+    Route::get('get-administrators', [AdministratorController::class, 'getAdministrators'])->name('administrators.get-administrators');
 
     //otp login
-    Route::post('otp-login',                                    [OtpLoginController::class, 'getOtp']);
-    Route::post('verify-otp',                                   [OtpLoginController::class, 'verifyOtp']);
+    Route::post('otp-login', [OtpLoginController::class, 'getOtp']);
+    Route::post('verify-otp', [OtpLoginController::class, 'verifyOtp']);
 });

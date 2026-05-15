@@ -125,3 +125,12 @@ ADD COLUMN is_price_changed TINYINT(1) NOT NULL DEFAULT 0 AFTER is_available,
 ADD COLUMN price_changed_at TIMESTAMP NULL AFTER is_price_changed,
 
 ADD COLUMN notes TEXT NULL AFTER price_changed_at;
+
+
+ALTER TABLE orders
+
+ADD payment_order_id VARCHAR(255) NULL,
+ADD payment_id VARCHAR(255) NULL;
+
+ALTER TABLE orders
+ADD discount DECIMAL(10,2) NOT NULL DEFAULT 0 AFTER status;

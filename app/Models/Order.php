@@ -18,7 +18,7 @@ class Order extends Model implements HasMedia
 {
     use HasModelEvents, InteractsWithMedia;
 
-    protected $table    = 'orders';
+    protected $table = 'orders';
     protected $fillable = [
         'restaurant_id',
         'user_id',
@@ -57,24 +57,27 @@ class Order extends Model implements HasMedia
 
     public function items()
     {
-        return $this->hasMany(OrderLineItem::class)->with('menuItem','variation')->with('restaurant');
+        return $this->hasMany(OrderLineItem::class)->with('menuItem', 'variation')->with('restaurant');
     }
-
+    public function orderLines()
+    {
+        return $this->hasMany(OrderLineItem::class);
+    }
     public function user()
     {
-        return $this->belongsTo(User::class)->with('media','roles');
+        return $this->belongsTo(User::class)->with('media', 'roles');
     }
 
     public function delivery()
     {
-        return $this->belongsTo(User::class, 'delivery_boy_id', 'id')->with('media','roles');
+        return $this->belongsTo(User::class, 'delivery_boy_id', 'id')->with('media', 'roles');
     }
-    
-    
+
+
 
     public function discount()
     {
-        return $this->hasOne(Discount::class,'order_id','id');
+        return $this->hasOne(Discount::class, 'order_id', 'id');
     }
 
     public function getOrderCodeAttribute()
@@ -91,13 +94,13 @@ class Order extends Model implements HasMedia
     {
         $invoice_id = Str::uuid();
 
-        $invoice               = new Invoice;
-        $invoice->id           = $invoice_id;
-        $invoice->meta         = ['order_id' => $this->id, 'amount' => $this->total, 'user_id' => $this->user_id];
+        $invoice = new Invoice;
+        $invoice->id = $invoice_id;
+        $invoice->meta = ['order_id' => $this->id, 'amount' => $this->total, 'user_id' => $this->user_id];
         $invoice->creator_type = User::class;
-        $invoice->editor_type  = User::class;
-        $invoice->creator_id   = 1;
-        $invoice->editor_id    = 1;
+        $invoice->editor_type = User::class;
+        $invoice->creator_id = 1;
+        $invoice->editor_id = 1;
         $invoice->save();
 
         $this->invoice_id = $invoice_id;
@@ -210,11 +213,11 @@ class Order extends Model implements HasMedia
 
     public function getGetOrderTypeNameAttribute()
     {
-        if($this->order_type == OrderTypeStatus::DELIVERY){
+        if ($this->order_type == OrderTypeStatus::DELIVERY) {
             return '<span class="db-table-badge text-green-600 bg-green-100">' . trans('orders_type.' . $this->order_type) . '</span>';
-        } elseif($this->order_type == OrderTypeStatus::PICKUP){
+        } elseif ($this->order_type == OrderTypeStatus::PICKUP) {
             return '<span class="db-table-badge text-yellow-600 bg-yellow-100">' . trans('orders_type.' . $this->order_type) . '</span>';
-        } elseif($this->order_type == OrderTypeStatus::TABLE){
+        } elseif ($this->order_type == OrderTypeStatus::TABLE) {
             return '<span class="db-table-badge text-green-600 bg-green-100">' . trans('orders_type.' . $this->order_type) . '</span>';
         } else {
             return '<span class="db-table-badge text-black bg-gray-200">' . trans('orders_type.' . $this->order_type) . '</span>';

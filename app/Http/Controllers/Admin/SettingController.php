@@ -316,7 +316,7 @@ class SettingController extends BackendController
         $settingArray = $this->validate($request, $this->razorpayValidateArray(), [], $niceNames);
         MyString::setEnv('RAZORPAY_KEY', $settingArray['razorpay_key']);
         MyString::setEnv('RAZORPAY_SECRET', $settingArray['razorpay_secret']);
-
+        MyString::setEnv('RAZORPAY_WEBHOOK_SECRET', $settingArray['razorpay_webhook_secret']);
         Setting::set($settingArray);
         Setting::save();
     }
@@ -697,6 +697,7 @@ class SettingController extends BackendController
         return [
             'razorpay_key'       => 'required|string|max:255',
             'razorpay_secret'    => 'required|string|max:255',
+            'razorpay_webhook_secret'    => 'required|string|max:255',
             'settingtypepayment' => 'required|string',
         ];
     }
