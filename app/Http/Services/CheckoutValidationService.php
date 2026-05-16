@@ -48,7 +48,7 @@ class CheckoutValidationService
         if (
             $cart->order_type == OrderTypeStatus::DELIVERY
             &&
-            !$cart->address
+            !$cart->address_id
         ) {
 
             throw new Exception(

@@ -15,18 +15,15 @@ class SendPetpoojaOrderJob implements ShouldQueue
 
     protected $orderId;
 
-    // Tries: Agar API fail hui toh Laravel isko apne aap 3 baar aur try karega
-    public $tries = 3; 
+    public $tries = 3;
 
     public function __construct($orderId)
     {
         $this->orderId = $orderId;
     }
 
-    // Dependency Injection se PetpoojaService yahan mil jayegi
     public function handle(PetpoojaService $petpoojaService): void
     {
-        // Service ko call karo
         $petpoojaService->pushOrder($this->orderId);
     }
 }

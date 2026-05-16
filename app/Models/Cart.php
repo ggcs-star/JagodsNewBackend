@@ -30,6 +30,7 @@ class Cart extends Model
         'is_expired',
         'notes',
         'expires_at',
+        'sync_messages',
     ];
 
     protected $casts = [
@@ -48,6 +49,7 @@ class Cart extends Model
         'is_price_changed' => 'boolean',
         'is_expired' => 'boolean',
         'expires_at' => 'datetime',
+         'sync_messages' => 'array',
     ];
 
     public function items()

@@ -139,6 +139,12 @@ class CartService
         if (isset($data['order_type']))
             $updateData['order_type'] = $data['order_type'];
 
+        // 🚨 Naye fields update array mein dale
+        if (isset($data['order_instructions']))
+            $updateData['order_instructions'] = $data['order_instructions'];
+        if (isset($data['tip_amount']))
+            $updateData['tip_amount'] = (float) $data['tip_amount'];
+
         if (isset($data['remove_coupon']) && $data['remove_coupon'] == true) {
             $updateData['coupon_id'] = null;
             $updateData['discount'] = 0;
@@ -312,8 +318,22 @@ class CartService
         $cart->loadMissing('coupon');
         $settings = Setting::pluck('value', 'key');
 
-        $subtotal = CartItem::where('cart_id', $cart->id)->sum('total_price');
-        $totalQuantity = CartItem::where('cart_id', $cart->id)->sum('quantity');
+        $subtotal = CartItem::where('cart_id', $cart->id)
+            ->where('is_available', true)
+            ->sum('total_price');
+
+        $totalQuantity = CartItem::where('cart_id', $cart->id)
+            ->where('is_available', true)
+            ->sum('quantity');
+
+        if ($cart->coupon) {
+            $minOrderAmount = $cart->coupon->minimum_order_amount ?? 0;
+
+            if ($subtotal < $minOrderAmount || $subtotal == 0) {
+                $cart->update(['coupon_id' => null, 'discount' => 0]);
+                $cart->load('coupon');
+            }
+        }
 
         $discount = $this->calculateDiscount($cart, $subtotal);
         $taxableAmount = max(0, $subtotal - $discount);
@@ -324,7 +344,7 @@ class CartService
         $perItemPackagingCharge = (float) ($settings['packing_charge'] ?? 0);
         $packagingCharge = $totalQuantity * $perItemPackagingCharge;
 
-        $platformFee = (float) ($settings['platform_fee'] ?? 0);
+        $platformFee = $subtotal > 0 ? (float) ($settings['platform_fee'] ?? 0) : 0;
 
         $deliveryCharge = $this->calculateDeliveryCharge($cart, $settings, $subtotal);
 
@@ -335,7 +355,21 @@ class CartService
             $largeOrderFee = (float) ($settings['large_order_fee'] ?? 0);
         }
 
-        $total = max(0, $taxableAmount + $gstAmount + $deliveryCharge + $packagingCharge + $platformFee + $largeOrderFee);
+        // 🚨 TIP AMOUNT ko cart se uthaya
+        $tipAmount = (float) ($cart->tip_amount ?? 0);
+
+        if ($subtotal == 0) {
+            $total = 0;
+            $deliveryCharge = 0;
+            $packagingCharge = 0;
+            $platformFee = 0;
+            $gstAmount = 0;
+            $largeOrderFee = 0;
+            $tipAmount = 0; // Agar cart khali toh tip bhi 0 kardo
+        } else {
+            // 🚨 TIP AMOUNT KO TOTAL ME JOD DIYA
+            $total = max(0, $taxableAmount + $gstAmount + $deliveryCharge + $packagingCharge + $platformFee + $largeOrderFee + $tipAmount);
+        }
 
         $cart->update([
             'subtotal' => $subtotal,
@@ -345,7 +379,7 @@ class CartService
             'packing_charge' => round($packagingCharge, 2),
             'platform_fee' => round($platformFee, 2),
             'large_order_fee' => round($largeOrderFee, 2),
-
+            'tip_amount' => round($tipAmount, 2), // Tip update
             'total' => round($total, 2),
         ]);
     }
@@ -409,15 +443,28 @@ class CartService
     private function syncCartItems(Cart $cart)
     {
         $hasChanges = false;
+        $priceChanged = false;
+        $syncMessages = [];
 
         foreach ($cart->items as $cartItem) {
             $menuItem = $cartItem->menuItem;
 
+
             if (!$menuItem || $menuItem->status != 5) {
-                $cartItem->delete();
-                $hasChanges = true;
+                if ($cartItem->is_available) {
+                    $cartItem->update([
+                        'is_available' => false,
+                        'total_price' => 0
+                    ]);
+                    $hasChanges = true;
+                }
+
+
+                $syncMessages[] = "{$cartItem->menu_name} is temporarily unavailable.";
+
                 continue;
             }
+
 
             $optionIds = [];
             if (!empty($cartItem->options) && is_array($cartItem->options)) {
@@ -432,14 +479,29 @@ class CartService
 
             $livePrice = $livePriceDetails['price'];
 
-            if ($cartItem->price != $livePrice) {
+            $wasUnavailable = !$cartItem->is_available;
+            $isPriceChanged = ($cartItem->price != $livePrice);
+
+            $expectedTotalPrice = $livePrice * $cartItem->quantity;
+            $isTotalWrong = ($cartItem->total_price != $expectedTotalPrice);
+
+            if ($isPriceChanged || $wasUnavailable || $isTotalWrong) {
+
                 $cartItem->update([
+                    'is_available' => true,
                     'price' => $livePrice,
-                    'total_price' => $livePrice * $cartItem->quantity,
-                    'options' => $livePriceDetails['options']
+                    'total_price' => $expectedTotalPrice,
+                    'options' => $livePriceDetails['options'],
+                    'is_price_changed' => $isPriceChanged ? true : $cartItem->is_price_changed
                 ]);
+
                 $hasChanges = true;
+                if ($isPriceChanged) {
+                    $priceChanged = true;
+
+                }
             }
+
 
             if ($cartItem->quantity > $menuItem->max_cart_quantity) {
                 $cartItem->update([
@@ -447,12 +509,16 @@ class CartService
                     'total_price' => $livePrice * $menuItem->max_cart_quantity,
                 ]);
                 $hasChanges = true;
+
+
             }
         }
 
         if ($hasChanges) {
             $cart->load('items.menuItem', 'items.variation');
         }
+
+        $cart->setAttribute('sync_messages', $syncMessages);
 
         return $hasChanges;
     }

@@ -18,7 +18,9 @@ class UpdateCartRequest extends FormRequest
             'latitude' => 'nullable|numeric',
             'longitude' => 'nullable|numeric',
             'order_type' => 'nullable|numeric',
-            'remove_coupon' => 'nullable|boolean', // Naya field add kiya
+            'remove_coupon' => 'nullable|boolean',
+            'order_instructions' => 'nullable|string|max:500',
+            'tip_amount' => 'nullable|numeric|min:0',
         ];
     }
 }

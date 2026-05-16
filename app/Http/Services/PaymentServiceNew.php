@@ -32,7 +32,6 @@ class PaymentServiceNew
 
     public function create(Order $order)
     {
-
         if ($order->payment_status == PaymentStatus::PAID) {
             throw new Exception('Order already paid');
         }
@@ -58,6 +57,14 @@ class PaymentServiceNew
 
     public function verify(Order $order, array $data)
     {
+        if ($order->payment_order_id !== $data['razorpay_order_id']) {
+            throw new Exception('Security Alert: Order mismatch detected.', 400);
+        }
+
+        if ($order->payment_status == PaymentStatus::PAID) {
+            throw new Exception('Order is already paid.', 400);
+        }
+
         $generatedSignature = hash_hmac(
             'sha256',
             $data['razorpay_order_id'] . "|" . $data['razorpay_payment_id'],
@@ -68,14 +75,57 @@ class PaymentServiceNew
             throw new Exception('Invalid payment signature', 400);
         }
 
-        DB::transaction(function () use ($order, $data) {
+        $payment = $this->razorpay->payment->fetch(
+            $data['razorpay_payment_id']
+        );
+
+
+        if ($payment->order_id !== $order->payment_order_id) {
+            throw new Exception('Payment order mismatch.', 400);
+        }
+
+        if ($payment->status !== 'captured') {
+            throw new Exception('Payment not captured.', 400);
+        }
+
+
+        $expectedAmountInPaise = (int) round($order->total * 100);
+
+        if ($payment->amount !== $expectedAmountInPaise) {
+            throw new Exception('Amount mismatch detected.', 400);
+        }
+
+        if ($payment->currency !== 'INR') {
+            throw new Exception('Currency mismatch.', 400);
+        }
+
+        DB::transaction(function () use ($order, $data, $payment) {
 
             $order->update([
                 'payment_status' => PaymentStatus::PAID,
                 'payment_id' => $data['razorpay_payment_id'],
+                'payment_response' => $payment->toArray(),
             ]);
 
-            $this->transactionService->payment($order);
+            $adminBalanceId = 1;
+            $userBalanceId = $order->user->balance_id;
+
+            $this->transactionService->addFund(
+                0,
+                $userBalanceId,
+                $order->payment_method,
+                $order->total,
+                $order->id
+            );
+
+            if ($adminBalanceId != $userBalanceId) {
+                $this->transactionService->payment(
+                    $userBalanceId,
+                    $adminBalanceId,
+                    $order->total,
+                    $order->id
+                );
+            }
         });
 
         return true;

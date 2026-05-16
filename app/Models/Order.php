@@ -42,7 +42,10 @@ class Order extends Model implements HasMedia
         'discount',
         'search_fee',
         'handling_fee',
-        'packaging_fee'
+        'packaging_fee',
+        'payment_order_id',
+        'payment_id'
+
     ];
     protected $casts = [
         'status' => 'int',

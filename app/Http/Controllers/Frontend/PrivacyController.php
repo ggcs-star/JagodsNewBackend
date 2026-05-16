@@ -3,17 +3,23 @@
 namespace App\Http\Controllers\Frontend;
 
 use App\Http\Controllers\FrontendController;
+use App\Models\Page;
 
 class PrivacyController extends FrontendController
 {
     public function __construct()
     {
         parent::__construct();
-        $this->data['site_title'] = 'privacy';
+
+        $this->data['site_title'] = 'Privacy Policy';
     }
 
     public function __invoke()
     {
-        return view('frontend.privacy', $this->data);
+        $page = Page::where('slug', 'privacy')->first();
+
+        return view('frontend.page.privacy', array_merge($this->data, [
+            'page' => $page
+        ]));
     }
 }

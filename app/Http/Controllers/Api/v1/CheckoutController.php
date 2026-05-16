@@ -98,10 +98,12 @@ class CheckoutController extends BackendController
     public function verifyPayment(VerifyPaymentRequest $request)
     {
         try {
-            $order = Order::findOrFail($request->order_id);
+
+            $order = Order::where('id', $request->order_id)
+                ->where('user_id', auth()->id())
+                ->firstOrFail();
 
             $this->paymentService->verify($order, $request->validated());
-
 
             $order->update([
                 'status' => \App\Enums\OrderStatus::PENDING
