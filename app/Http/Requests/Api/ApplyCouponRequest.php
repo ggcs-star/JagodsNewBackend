@@ -14,8 +14,7 @@ class ApplyCouponRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'coupon' => 'required|string',
-            'restaurantID' => 'nullable|numeric',
+           'coupon' => 'required|string',
         ];
     }
 }

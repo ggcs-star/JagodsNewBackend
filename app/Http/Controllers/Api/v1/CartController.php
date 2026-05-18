@@ -9,7 +9,7 @@ use App\Http\Requests\Api\ApplyCouponRequest;
 use App\Http\Requests\Api\UpdateCartRequest;
 use App\Http\Services\CartService;
 use Illuminate\Http\Request;
-
+use App\Http\Resources\v1\CartResource;
 class CartController extends FrontendController
 {
     use ApiResponse;
@@ -27,41 +27,52 @@ class CartController extends FrontendController
     public function index()
     {
         $cart = $this->cartService->getCart(auth()->id());
+
+
+        if (!$cart) {
+            return $this->successresponse([
+                'status' => 200,
+                'message' => 'Cart is empty',
+                'data' => null
+            ]);
+        }
+
+
         return $this->successresponse([
             'status' => 200,
-            'message' => $cart ? 'Cart fetched successfully' : 'Cart is empty',
-            'data' => $cart ?? []
+            'message' => 'Cart fetched successfully',
+            'data' => new CartResource($cart)
         ]);
     }
 
-   public function store(StoreCartRequest $request)
-{
-    try {
+    public function store(StoreCartRequest $request)
+    {
+        try {
 
-        $cart = $this->cartService->addToCart(
-            $request->validated(),
-            auth()->id()
-        );
+            $cart = $this->cartService->addToCart(
+                $request->validated(),
+                auth()->id()
+            );
 
-        return $this->successresponse([
+            return $this->successresponse([
 
-            'status' => 200,
+                'status' => 200,
 
-            'message' => 'Added to cart successfully',
+                'message' => 'Added to cart successfully',
 
-            'cart' => $cart
-        ]);
+                'cart' => $cart
+            ]);
 
-    } catch (\Exception $e) {
+        } catch (\Exception $e) {
 
-        return $this->successresponse([
+            return $this->successresponse([
 
-            'status' => $e->getCode() ?: 400,
+                'status' => $e->getCode() ?: 400,
 
-            'message' => $e->getMessage()
-        ]);
+                'message' => $e->getMessage()
+            ]);
+        }
     }
-}
 
 
     public function update(UpdateCartRequest $request)

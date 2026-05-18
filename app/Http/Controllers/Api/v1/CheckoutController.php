@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\v1;
 
+use Illuminate\Http\Request;
 use App\Http\Controllers\BackendController;
 use App\Traits\ApiResponse;
 use App\Http\Requests\Api\CheckoutRequest;
@@ -13,6 +14,7 @@ use App\Models\Cart;
 use App\Models\Order;
 use Exception;
 use Illuminate\Support\Facades\Log;
+use App\Jobs\SendOrderInvoiceJob;  
 
 class CheckoutController extends BackendController
 {
@@ -108,10 +110,53 @@ class CheckoutController extends BackendController
             $order->update([
                 'status' => \App\Enums\OrderStatus::PENDING
             ]);
-
+            // SendOrderInvoiceJob::dispatch($order);
             return $this->successResponse([
                 'status' => 200,
                 'message' => 'Payment verified successfully',
+            ]);
+
+        } catch (Exception $e) {
+            $statusCode = (int) $e->getCode();
+            $statusCode = ($statusCode >= 100 && $statusCode <= 599) ? $statusCode : 400;
+            return $this->errorResponse($e->getMessage(), $statusCode);
+        }
+    }
+
+    public function repayOrder(Request $request)
+    {
+
+        $request->validate([
+            'order_id' => 'required|numeric|exists:orders,id'
+        ], [
+            'order_id.required' => 'Order ID is required.',
+            'order_id.exists' => 'Order not found. Please provide a valid order ID.'
+        ]);
+
+        try {
+
+            $order = Order::where('id', $request->order_id)
+                ->where('user_id', auth()->id())
+                ->first();
+
+            if (!$order) {
+                return $this->errorResponse('This order does not belong to you or has been removed.', 404);
+            }
+
+            if ($order->payment_status == \App\Enums\PaymentStatus::PAID) {
+                return $this->errorResponse('This order is already paid.', 400);
+            }
+
+            if ($order->status == \App\Enums\OrderStatus::CANCEL) {
+                return $this->errorResponse('Cancelled orders cannot be paid.', 400);
+            }
+
+            $paymentData = $this->paymentService->create($order);
+
+            return $this->successResponse([
+                'status' => 200,
+                'message' => 'Repayment initiated successfully',
+                'data' => $paymentData
             ]);
 
         } catch (Exception $e) {

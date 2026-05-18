@@ -159,7 +159,8 @@ Route::group(['prefix' => 'v1'], function () {
     Route::post('checkout', [CheckoutController::class, 'checkout']);
     Route::post('payment/verify', [CheckoutController::class, 'verifyPayment']);
     Route::post('webhooks/razorpay', [WebhookController::class, 'razorpay']);
-    
+    Route::post('/repay-order', [CheckoutController::class, 'repayOrder']);
+
     Route::resource('administrators', AdministratorController::class);
     Route::get('get-administrators', [AdministratorController::class, 'getAdministrators'])->name('administrators.get-administrators');
 

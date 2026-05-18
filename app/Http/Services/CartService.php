@@ -139,7 +139,6 @@ class CartService
         if (isset($data['order_type']))
             $updateData['order_type'] = $data['order_type'];
 
-        // 🚨 Naye fields update array mein dale
         if (isset($data['order_instructions']))
             $updateData['order_instructions'] = $data['order_instructions'];
         if (isset($data['tip_amount']))
@@ -220,33 +219,53 @@ class CartService
         $cart = $this->getCartOrFail($userId);
         $today = now();
 
+
         $coupon = Coupon::whereRaw('BINARY slug = ?', [$data['coupon']])
             ->where('from_date', '<=', $today)
             ->where('to_date', '>=', $today)
             ->where('limit', '>', 0)
-            ->where(function ($query) use ($data) {
-                $query->where('restaurant_id', $data['restaurantID'] ?? null)->orWhere('restaurant_id', 0);
+            ->where(function ($query) use ($cart) {
+
+                $query->where('restaurant_id', $cart->restaurant_id)
+                    ->orWhere('restaurant_id', 0);
             })->first();
 
-        if (!$coupon)
-            throw new Exception('This Coupon is Invalid');
+        if (!$coupon) {
+            throw new Exception('This Coupon is Invalid or Expired');
+        }
 
-        if ($coupon->coupon_type == CouponType::VOUCHER && $coupon->restaurant_id != 0 && $coupon->restaurant_id != ($data['restaurantID'] ?? null)) {
+
+        if ($coupon->coupon_type == CouponType::VOUCHER && $coupon->restaurant_id != 0 && $coupon->restaurant_id != $cart->restaurant_id) {
             throw new Exception('This Coupon is Invalid for this restaurant.');
         }
 
-        $totalUsed = Discount::where('coupon_id', $coupon->id)->where('status', DiscountStatus::ACTIVE)->count();
-        if ($totalUsed >= $coupon->limit)
-            throw new Exception('This Coupon is Expired.');
 
-        $userUsed = Discount::where('coupon_id', $coupon->id)->where('user_id', $userId)->where('status', DiscountStatus::ACTIVE)->exists();
-        if ($userUsed)
-            throw new Exception('You have already used this coupon.');
+        if ($coupon->minimum_order_amount > 0 && $cart->subtotal < $coupon->minimum_order_amount) {
+            throw new Exception("This coupon requires a minimum order amount of ₹" . $coupon->minimum_order_amount);
+        }
+
+
+        $totalUsed = Discount::where('coupon_id', $coupon->id)->where('status', DiscountStatus::ACTIVE)->count();
+        if ($totalUsed >= $coupon->limit) {
+            throw new Exception('This Coupon is fully redeemed and no longer available.');
+        }
+
+
+        $userUsedCount = Discount::where('coupon_id', $coupon->id)->where('user_id', $userId)->where('status', DiscountStatus::ACTIVE)->count();
+        $userLimit = $coupon->user_limit > 0 ? $coupon->user_limit : 1;
+
+        if ($userUsedCount >= $userLimit) {
+            throw new Exception('You have already reached the maximum usage limit for this coupon.');
+        }
+
 
         $cart->update(['coupon_id' => $coupon->id]);
         $this->updateCartTotals($cart);
 
-        return ['coupon' => $coupon, 'cart' => $cart->fresh(['items.menuItem', 'items.variation', 'coupon'])];
+        return [
+            'coupon' => $coupon,
+            'cart' => $cart->fresh(['items.menuItem', 'items.variation', 'coupon'])
+        ];
     }
 
     private function getCartOrFail($userId)
@@ -345,6 +364,8 @@ class CartService
         $packagingCharge = $totalQuantity * $perItemPackagingCharge;
 
         $platformFee = $subtotal > 0 ? (float) ($settings['platform_fee'] ?? 0) : 0;
+        
+        $surgeFee = $subtotal > 0 ? (float) ($settings['surge_fee'] ?? 0) : 0;
 
         $deliveryCharge = $this->calculateDeliveryCharge($cart, $settings, $subtotal);
 
@@ -355,7 +376,6 @@ class CartService
             $largeOrderFee = (float) ($settings['large_order_fee'] ?? 0);
         }
 
-        // 🚨 TIP AMOUNT ko cart se uthaya
         $tipAmount = (float) ($cart->tip_amount ?? 0);
 
         if ($subtotal == 0) {
@@ -363,12 +383,13 @@ class CartService
             $deliveryCharge = 0;
             $packagingCharge = 0;
             $platformFee = 0;
+            $surgeFee = 0; 
             $gstAmount = 0;
             $largeOrderFee = 0;
-            $tipAmount = 0; // Agar cart khali toh tip bhi 0 kardo
+            $tipAmount = 0;
         } else {
-            // 🚨 TIP AMOUNT KO TOTAL ME JOD DIYA
-            $total = max(0, $taxableAmount + $gstAmount + $deliveryCharge + $packagingCharge + $platformFee + $largeOrderFee + $tipAmount);
+        
+            $total = max(0, $taxableAmount + $gstAmount + $deliveryCharge + $packagingCharge + $platformFee + $surgeFee + $largeOrderFee + $tipAmount);
         }
 
         $cart->update([
@@ -378,8 +399,9 @@ class CartService
             'delivery_charge' => round($deliveryCharge, 2),
             'packing_charge' => round($packagingCharge, 2),
             'platform_fee' => round($platformFee, 2),
+            'surge_fee' => round($surgeFee, 2), 
             'large_order_fee' => round($largeOrderFee, 2),
-            'tip_amount' => round($tipAmount, 2), // Tip update
+            'tip_amount' => round($tipAmount, 2),
             'total' => round($total, 2),
         ]);
     }
