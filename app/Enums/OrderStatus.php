@@ -10,6 +10,7 @@ namespace App\Enums;
 
 interface OrderStatus
 {
+    const PAYMENT_PENDING = 1;
     const PENDING    = 5;
     const CANCEL     = 10;
     const REJECT     = 12;

@@ -5,7 +5,7 @@ namespace App\Http\Controllers\Frontend;
 use App\Http\Controllers\FrontendController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
-
+use App\Models\Page;
 class ContactController extends FrontendController
 {
     public function __construct()
@@ -14,10 +14,16 @@ class ContactController extends FrontendController
         $this->data['site_title'] = 'Contact Us';
     }
 
-    public function __invoke()
-    {
-        return view('frontend.contact', $this->data);
-    }
+  
+
+public function __invoke()
+{
+    $page = Page::where('slug', 'contact-us')->first();
+
+    return view('frontend.page.contact', array_merge($this->data, [
+        'page' => $page
+    ]));
+}
 
     public function store(Request $request)
     {

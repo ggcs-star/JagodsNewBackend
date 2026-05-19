@@ -14,7 +14,7 @@
         "brotzka/laravel-dotenv-editor": "^2.1",
         "cviebrock/eloquent-sluggable": "^10.0",
         "diglactic/laravel-breadcrumbs": "^9.0",
-
+        "barryvdh/laravel-dompdf": "^3.1",
         "dipesh79/laravel-phonepe": "^1.0",
         "dipokhalder/laravel-env-editor": "^1.0",
         "froiden/envato": "^2.0",
@@ -103,7 +103,7 @@
     },
     "config": {
         "platform": {
-        "php": "8.1.0"
+        "php": "8.2.0"
     },
         "optimize-autoloader": true,
         "preferred-install": "dist",

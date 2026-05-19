@@ -38,7 +38,9 @@ class SettingResource extends JsonResource
             'voucher_note'               => isset($this['voucher_note']) ? $this['voucher_note'] : '',
             'packaging_charge'               => isset($this['packaging_charge']) ? $this['packaging_charge'] : '',
             'handling_charge'               => isset($this['handling_charge']) ? $this['handling_charge'] : '',
-            'search_charge'               => isset($this['search_charge']) ? $this['search_charge'] : '',
+            'surge_fee'               => isset($this['surge_fee']) ? $this['surge_fee'] : '',
+            'high_order_amount_limit'     => isset($this['high_order_amount_limit']) ? $this['high_order_amount_limit'] : '',
+            'high_order_delivery_charge'  => isset($this['high_order_delivery_charge']) ? $this['high_order_delivery_charge'] : '',
        ];
     }
 }

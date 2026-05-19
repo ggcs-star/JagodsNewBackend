@@ -33,10 +33,10 @@
             <div class="col-lg-3 col-md-6">
                 <h6 class="footer-title">LEARN MORE</h6>
                 <ul class="footer-links">
-                    <li><a href="#">Privacy</a></li>
-                    <li><a href="#">Terms of Service</a></li>
-                    <li><a href="#">Help & Support</a></li>
-                    <li><a href="#">Blog</a></li>
+                    <li><a href="/privacy">Privacy</a></li>
+                    <li><a href="/terms">Terms of Service</a></li>
+                    <li><a href="/contact">Help & Support</a></li>
+                 
                 </ul>
             </div>
 

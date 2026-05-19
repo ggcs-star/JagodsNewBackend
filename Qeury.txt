@@ -1,0 +1,136 @@
+CREATE TABLE carts (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+
+    user_id BIGINT UNSIGNED NULL,
+
+    restaurant_id BIGINT UNSIGNED NOT NULL,
+
+    subtotal DECIMAL(10,2) DEFAULT 0,
+
+    discount DECIMAL(10,2) DEFAULT 0,
+
+    delivery_charge DECIMAL(10,2) DEFAULT 0,
+
+    total DECIMAL(10,2) DEFAULT 0,
+
+    created_at TIMESTAMP NULL DEFAULT NULL,
+
+    updated_at TIMESTAMP NULL DEFAULT NULL
+);
+
+
+
+
+
+CREATE TABLE cart_items (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+
+    cart_id BIGINT UNSIGNED NOT NULL,
+
+    menu_item_id BIGINT UNSIGNED NOT NULL,
+
+    variation_id BIGINT UNSIGNED NULL,
+
+    options JSON NULL,
+
+    instructions TEXT NULL,
+
+    quantity INT DEFAULT 1,
+
+    price DECIMAL(10,2) NOT NULL,
+
+    total_price DECIMAL(10,2) NOT NULL,
+
+    created_at TIMESTAMP NULL DEFAULT NULL,
+
+    updated_at TIMESTAMP NULL DEFAULT NULL,
+
+    CONSTRAINT fk_cart_items_cart
+        FOREIGN KEY (cart_id)
+        REFERENCES carts(id)
+        ON DELETE CASCADE
+);
+
+
+
+
+
+ALTER TABLE carts
+ADD coupon_id BIGINT UNSIGNED NULL AFTER user_id,
+
+ADD gst_amount DECIMAL(10,2) DEFAULT 0 AFTER discount;
+
+
+
+ALTER TABLE carts
+ADD latitude VARCHAR(50) NULL AFTER order_type,
+ADD longitude VARCHAR(50) NULL AFTER latitude;
+
+
+ALTER TABLE carts
+ADD order_type TINYINT(1) NOT NULL DEFAULT 1
+AFTER coupon_id;
+
+ALTER TABLE addresses 
+ADD COLUMN is_default TINYINT(1) NOT NULL DEFAULT 0 
+AFTER longitude;
+
+ALTER TABLE `menu_items`
+ADD COLUMN `max_cart_quantity` INT NOT NULL DEFAULT 10 AFTER `status`;
+
+ALTER TABLE `carts`
+ADD COLUMN `address_id` BIGINT UNSIGNED NULL AFTER `user_id`;
+
+
+ALTER TABLE carts
+ADD COLUMN order_instructions TEXT NULL AFTER order_type,
+
+ADD COLUMN packing_charge DECIMAL(10,2) NOT NULL DEFAULT 0 AFTER delivery_charge,
+
+ADD COLUMN handling_charge DECIMAL(10,2) NOT NULL DEFAULT 0 AFTER packing_charge,
+
+ADD COLUMN surge_fee DECIMAL(10,2) NOT NULL DEFAULT 0 AFTER handling_charge,
+
+ADD COLUMN tip_amount DECIMAL(10,2) NOT NULL DEFAULT 0 AFTER surge_fee,
+
+ADD COLUMN status VARCHAR(50) NULL AFTER total,
+
+ADD COLUMN is_price_changed TINYINT(1) NOT NULL DEFAULT 0 AFTER status,
+
+ADD COLUMN is_expired TINYINT(1) NOT NULL DEFAULT 0 AFTER is_price_changed,
+
+ADD COLUMN notes TEXT NULL AFTER is_expired,
+
+ADD COLUMN expires_at TIMESTAMP NULL AFTER notes;
+
+
+ALTER TABLE cart_items
+
+ADD COLUMN menu_name VARCHAR(255) NULL AFTER variation_id,
+
+ADD COLUMN menu_slug VARCHAR(255) NULL AFTER menu_name,
+
+ADD COLUMN menu_image TEXT NULL AFTER menu_slug,
+
+ADD COLUMN variation_name VARCHAR(255) NULL AFTER menu_image,
+
+ADD COLUMN unit_price DECIMAL(10,2) NOT NULL DEFAULT 0 AFTER variation_name,
+
+ADD COLUMN discount_price DECIMAL(10,2) NOT NULL DEFAULT 0 AFTER unit_price,
+
+ADD COLUMN is_available TINYINT(1) NOT NULL DEFAULT 1 AFTER quantity,
+
+ADD COLUMN is_price_changed TINYINT(1) NOT NULL DEFAULT 0 AFTER is_available,
+
+ADD COLUMN price_changed_at TIMESTAMP NULL AFTER is_price_changed,
+
+ADD COLUMN notes TEXT NULL AFTER price_changed_at;
+
+
+ALTER TABLE orders
+
+ADD payment_order_id VARCHAR(255) NULL,
+ADD payment_id VARCHAR(255) NULL;
+
+ALTER TABLE orders
+ADD discount DECIMAL(10,2) NOT NULL DEFAULT 0 AFTER status;

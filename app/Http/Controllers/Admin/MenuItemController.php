@@ -72,14 +72,16 @@ class MenuItemController extends BackendController
             }
         }
         $menuNumber = $this->checkMenuNumber($menu_array);
-        $menuItem                 = new MenuItem;
-        $menuItem->restaurant_id  = $request->get('restaurant_id');
-        $menuItem->name           = $request->get('name');
-        $menuItem->description    = $request->get('description');
-        $menuItem->unit_price     = $request->get('unit_price');
+        $menuItem = new MenuItem;
+        $menuItem->restaurant_id = $request->get('restaurant_id');
+        $menuItem->name = $request->get('name');
+        $menuItem->description = $request->get('description');
+        $menuItem->unit_price = $request->get('unit_price');
         $menuItem->discount_price = $request->get('discount_price') ?? 0;
-        $menuItem->status         = $request->get('status');
-        $menuItem->menu_number         = $menuNumber;
+        $menuItem->restroType = $request->get('restroType') ?? 'veg';
+        $menuItem->max_cart_quantity = $request->get('max_cart_quantity');
+        $menuItem->status = $request->get('status');
+        $menuItem->menu_number = $menuNumber;
         $menuItem->save();
 
         $menuItem->categories()->sync($request->get('categories'));
@@ -111,11 +113,11 @@ class MenuItemController extends BackendController
      */
     public function edit(MenuItem $menuItem)
     {
-        $this->data['menuItem']            = $menuItem;
-        $this->data['categories']          = Category::where(['status' => CategoryStatus::ACTIVE])->get();
+        $this->data['menuItem'] = $menuItem;
+        $this->data['categories'] = Category::where(['status' => CategoryStatus::ACTIVE])->get();
         $this->data['menuItem_categories'] = $menuItem->categories()->pluck('id')->toArray();
         $this->data['restaurants'] = Restaurant::where(['status' => Status::ACTIVE])->get();
-
+        // dd( $this->data['menuItem']);
         return view('admin.menu-item.edit', $this->data);
     }
 
@@ -127,19 +129,21 @@ class MenuItemController extends BackendController
      */
     public function update(MenuItemRequest $request, $id)
     {
-        $menuItem                 = MenuItem::owner()->findOrFail($id);
-        $menuItem->restaurant_id  = $request->get('restaurant_id');
-        $menuItem->name           = $request->get('name');
-        $menuItem->description    = $request->get('description');
-        $menuItem->unit_price     = $request->get('unit_price');
+        $menuItem = MenuItem::owner()->findOrFail($id);
+        $menuItem->restaurant_id = $request->get('restaurant_id');
+        $menuItem->name = $request->get('name');
+        $menuItem->description = $request->get('description');
+        $menuItem->unit_price = $request->get('unit_price');
         $menuItem->discount_price = $request->get('discount_price') ?? 0;
-        $menuItem->status         = $request->get('status');
+        $menuItem->restroType = $request->get('restroType') ?? 'veg';
+        $menuItem->max_cart_quantity = $request->get('max_cart_quantity');
+        $menuItem->status = $request->get('status');
         $menuItem->save();
 
         $menuItem->categories()->sync($request->get('categories'));
 
         //Update Image
-        if ($request->hasFile('image') && $request->file('image')->isValid()) { 
+        if ($request->hasFile('image') && $request->file('image')->isValid()) {
             $menuItem->deleteMedia('menu-items', $menuItem->id);
             $menuItem->addMediaFromRequest('image')->toMediaCollection('menu-items');
         }
@@ -166,8 +170,8 @@ class MenuItemController extends BackendController
             if (!empty($request->status) && (int) $request->status) {
                 $queryArray['status'] = $request->status;
             }
-            if (auth()->user()->myrole != 1 && auth()->user()->restaurant){
-                $queryArray['restaurant_id'] =auth()->user()->restaurant->id;
+            if (auth()->user()->myrole != 1 && auth()->user()->restaurant) {
+                $queryArray['restaurant_id'] = auth()->user()->restaurant->id;
             }
 
             if (!blank($queryArray)) {
@@ -179,12 +183,12 @@ class MenuItemController extends BackendController
             $i = 0;
             return Datatables::of($menuItems)
                 ->addColumn('action', function ($menuItem) {
-                    $button_array           = [];
-                    $button_array['modify'] = ['route' => route('admin.menu-items.modify', $menuItem),'permission' => 'menu-items_edit'];
-                    $button_array['view']   = ['route' => route('admin.menu-items.show', $menuItem),'permission' => 'menu-items_show'];
-                    $button_array['edit']   = ['route' => route('admin.menu-items.edit', $menuItem),'permission' => 'menu-items_edit'];
-                    $button_array['delete'] = ['route' => route('admin.menu-items.destroy', $menuItem),'permission' => 'menu-items_delete'];
-                    
+                    $button_array = [];
+                    $button_array['modify'] = ['route' => route('admin.menu-items.modify', $menuItem), 'permission' => 'menu-items_edit'];
+                    $button_array['view'] = ['route' => route('admin.menu-items.show', $menuItem), 'permission' => 'menu-items_show'];
+                    $button_array['edit'] = ['route' => route('admin.menu-items.edit', $menuItem), 'permission' => 'menu-items_edit'];
+                    $button_array['delete'] = ['route' => route('admin.menu-items.destroy', $menuItem), 'permission' => 'menu-items_delete'];
+
                     return action_button($button_array);
                 })
                 ->editColumn('id', function ($menuItem) use (&$i) {
@@ -202,7 +206,7 @@ class MenuItemController extends BackendController
                 ->editColumn('status', function ($menuItem) {
                     return $menuItem->statusName;
                 })
-                ->rawColumns(['name' ,'status', 'action'])
+                ->rawColumns(['name', 'status', 'action'])
                 ->make(true);
         }
         return view('admin.menu-item.index', $this->data);
@@ -211,17 +215,17 @@ class MenuItemController extends BackendController
     public function getMedia(Request $request)
     {
 
-        $menuItem       = MenuItem::owner()->where('status', MenuItemStatus::ACTIVE)->find($request->id);
+        $menuItem = MenuItem::owner()->where('status', MenuItemStatus::ACTIVE)->find($request->id);
         $menuItemImages = $menuItem->iamges;
 
-        $i      = 0;
+        $i = 0;
         $retArr = [];
         if (!blank($menuItemImages)) {
             foreach ($menuItemImages as $menuItemImage) {
                 $i++;
                 $retArr[$i]['name'] = $menuItemImage->file_name;
                 $retArr[$i]['size'] = $menuItemImage->size;
-                $retArr[$i]['url']  = asset($menuItemImage->getUrl());
+                $retArr[$i]['url'] = asset($menuItemImage->getUrl());
             }
         }
         echo json_encode($retArr);
@@ -252,7 +256,7 @@ class MenuItemController extends BackendController
         $file->move($path, $name);
 
         return response()->json([
-            'name'          => $name,
+            'name' => $name,
             'original_name' => $file->getClientOriginalName(),
         ]);
     }
@@ -283,7 +287,7 @@ class MenuItemController extends BackendController
 
             $menuItem->addMedia(storage_path('tmp/uploads/' . $name))->toMediaCollection('menu-items');
             return response()->json([
-                'name'          => $name,
+                'name' => $name,
                 'original_name' => $file->getClientOriginalName(),
             ]);
         }
@@ -300,9 +304,9 @@ class MenuItemController extends BackendController
     {
         $menuItem = MenuItem::owner()->findOrFail($id);
 
-        $this->data['menuItem']             = $menuItem;
+        $this->data['menuItem'] = $menuItem;
         $this->data['menu_item_variations'] = $menuItem->variations;
-        $this->data['menu_item_options']    = $menuItem->options;
+        $this->data['menu_item_options'] = $menuItem->options;
 
         return view('admin.menu-item.modify', $this->data);
     }
@@ -313,17 +317,17 @@ class MenuItemController extends BackendController
             return redirect(route('admin.menu-items.modify', $id))->withError("The meun item variation/option required.");
         }
 
-        $menuItem       = MenuItem::owner()->findOrFail($id);
+        $menuItem = MenuItem::owner()->findOrFail($id);
 
         $variationArray = $request->variation;
 
         if (!blank($variationArray)) {
-            $requestArray['variation.*.name']           = ['required', 'string'];
-            $requestArray['variation.*.price']          = ['required', 'numeric', 'gt:0', new IniAmount()];
+            $requestArray['variation.*.name'] = ['required', 'string'];
+            $requestArray['variation.*.price'] = ['required', 'numeric', 'gt:0', new IniAmount()];
             $requestArray['variation.*.discount_price'] = ['nullable', 'numeric', 'gte:0', new IniAmount()];
         }
 
-        $requestArray['option.*.name']  = ['nullable', 'string'];
+        $requestArray['option.*.name'] = ['nullable', 'string'];
         $requestArray['option.*.price'] = ['nullable', 'numeric', 'gt:0', new IniAmount()];
 
         $validator = Validator::make($request->all(), $requestArray);
@@ -349,9 +353,9 @@ class MenuItemController extends BackendController
 
         if (!blank($variationArray)) {
 
-            $key                = array_key_first($variationArray);
+            $key = array_key_first($variationArray);
 
-            $smallPrice         = isset($variationArray[$key]) ? $variationArray[$key]['price'] : 0;
+            $smallPrice = isset($variationArray[$key]) ? $variationArray[$key]['price'] : 0;
             $smallDiscountPrice = isset($variationArray[$key]) ? $variationArray[$key]['discount_price'] : 0;
 
             $menuItemVariation = MenuItemVariation::where('menu_item_id', $menuItem->id)->get()->pluck('id', 'id')->toArray();
@@ -362,30 +366,30 @@ class MenuItemController extends BackendController
                 $setVariationArray[$key] = $key;
 
                 if ($variation['price'] < $smallPrice) {
-                    $smallPrice         = $variation['price'];
+                    $smallPrice = $variation['price'];
                     $smallDiscountPrice = $variation['discount_price'];
                 }
 
                 if (isset($menuItemVariation[$key])) {
                     $menuItemVariationItem = MenuItemVariation::where(['id' => $key])->first();
 
-                    $menuItemVariationItem->menu_item_id   = $menuItem->id;
-                    $menuItemVariationItem->restaurant_id  = $menuItem->restaurant_id;
-                    $menuItemVariationItem->name           = $variation['name'];
-                    $menuItemVariationItem->price          = $variation['price'];
+                    $menuItemVariationItem->menu_item_id = $menuItem->id;
+                    $menuItemVariationItem->restaurant_id = $menuItem->restaurant_id;
+                    $menuItemVariationItem->name = $variation['name'];
+                    $menuItemVariationItem->price = $variation['price'];
                     $menuItemVariationItem->discount_price = $variation['discount_price'] ?? 0;
                     $menuItemVariationItem->save();
                 } else {
-                    $menuItemVariationArray['menu_item_id']   = $menuItem->id;
-                    $menuItemVariationArray['restaurant_id']  = $menuItem->restaurant_id;
-                    $menuItemVariationArray['name']           = $variation['name'];
-                    $menuItemVariationArray['price']          = $variation['price'];
+                    $menuItemVariationArray['menu_item_id'] = $menuItem->id;
+                    $menuItemVariationArray['restaurant_id'] = $menuItem->restaurant_id;
+                    $menuItemVariationArray['name'] = $variation['name'];
+                    $menuItemVariationArray['price'] = $variation['price'];
                     $menuItemVariationArray['discount_price'] = $variation['discount_price'] ?? 0;
                     MenuItemVariation::insert($menuItemVariationArray);
                 }
             }
 
-            $menuItem->unit_price     = $smallPrice;
+            $menuItem->unit_price = $smallPrice;
             $menuItem->discount_price = $smallDiscountPrice ?? 0;
             $menuItem->save();
 
@@ -396,16 +400,16 @@ class MenuItemController extends BackendController
         MenuItemOption::where('menu_item_id', $id)->delete();
         $mainOptionArray = $request->option;
         if (!blank($mainOptionArray)) {
-            $i           = 0;
+            $i = 0;
             $optionArray = [];
             foreach ($mainOptionArray as $option) {
                 if ($option['name'] == '' || $option['price'] == '') {
                     continue;
                 }
                 $optionArray[$i]['restaurant_id'] = $menuItem->restaurant_id;
-                $optionArray[$i]['menu_item_id']  = $id;
-                $optionArray[$i]['name']          = $option['name'];
-                $optionArray[$i]['price']         = $option['price'];
+                $optionArray[$i]['menu_item_id'] = $id;
+                $optionArray[$i]['name'] = $option['name'];
+                $optionArray[$i]['price'] = $option['price'];
                 $i++;
             }
             MenuItemOption::insert($optionArray);
