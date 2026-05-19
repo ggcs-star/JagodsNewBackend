@@ -199,9 +199,12 @@ class Order extends Model implements HasMedia
         }
     }
 
-    public function getStatusNameAttribute()
+  public function getStatusNameAttribute()
     {
-        if ($this->status == OrderStatus::ACCEPT) {
+        
+        if ($this->status == OrderStatus::PAYMENT_PENDING) {
+            return '<span class="db-table-badge text-orange-600 bg-orange-100">' . trans('order_status.' . $this->status) . '</span>';
+        } elseif ($this->status == OrderStatus::ACCEPT) {
             return '<span class="db-table-badge text-green-600 bg-green-100">' . trans('order_status.' . $this->status) . '</span>';
         } elseif ($this->status == OrderStatus::PENDING) {
             return '<span class="db-table-badge text-yellow-600 bg-yellow-100">' . trans('order_status.' . $this->status) . '</span>';

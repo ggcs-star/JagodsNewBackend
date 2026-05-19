@@ -115,12 +115,7 @@ class CartService
         $this->updateCartTotals($cart);
 
         return $cart->fresh([
-            'address',
-            'coupon',
-            'restaurant',
-            'items',
-            'items.menuItem',
-            'items.variation',
+          
         ]);
     }
 
@@ -155,7 +150,7 @@ class CartService
 
         $this->updateCartTotals($cart);
 
-        return $cart->fresh(['address', 'items.menuItem', 'items.variation', 'coupon']);
+        return $cart->fresh();
     }
 
     public function removeItem($cartItemId)

@@ -3,7 +3,7 @@
 namespace App\Http\Requests\Api;
 
 use Illuminate\Foundation\Http\FormRequest;
-
+use App\Enums\PaymentMethod;
 class CheckoutRequest extends FormRequest
 {
     public function authorize(): bool
@@ -13,9 +13,10 @@ class CheckoutRequest extends FormRequest
 
     public function rules(): array
     {
-        return [
-            'payment_method' => 'required|in:cod,razorpay',
-            'transaction_id' => 'nullable|string',
+       return [
+          
+            'payment_method' => 'required|in:' . PaymentMethod::CASH_ON_DELIVERY . ',' . PaymentMethod::RAZORPAY,
+            
         ];
     }
 }

@@ -1,6 +1,7 @@
 <?php
 
 return array (
+  1 => 'payment pending',
   5 => 'Pending',
   10 => 'Cancel',
   14 => 'Accepted',
