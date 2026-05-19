@@ -17,7 +17,7 @@ use Illuminate\Support\Facades\Validator;
 class CuisineController extends BackendController
 {
     use ApiResponse;
-    protected  $cuisineService;
+    protected $cuisineService;
 
     public function __construct(CuisineService $cuisineService)
     {
@@ -33,33 +33,41 @@ class CuisineController extends BackendController
      */
     public function index(Request $request)
     {
-        try{
+        try {
             $cuisines = CuisineResource::collection($this->cuisineService->allCuisines($request));
-            return $this->successResponse(['status'=> 200, 'data' => $cuisines]);
 
-        } catch (\Exception $e){
+            return $this->successResponse(['status' => 200, 'data' => $cuisines]);
+
+        } catch (\Exception $e) {
             return response()->json([
                 'exception' => get_class($e),
                 'message' => $e->getMessage(),
-                'trace' => $e->getTrace(),
-            ]);
+                'trace' => config('app.debug') ? $e->getTrace() : [],
+            ], 500);
         }
     }
 
     public function show($id)
     {
-        $cuisine = $this->cuisineService->show($id);
-        try{
-            $this->data['cuisine'] = new CuisineResource($cuisine);
-            $this->data['restaurants'] = PopularRestaurantResource::collection($cuisine->restaurants->where('status', 5));
+        try {
+            $cuisine = $this->cuisineService->show($id);
 
-            return $this->successResponse(['status'=> 200, 'data' =>  $this->data]);
-        } catch (\Exception $e){
+            $activeRestaurants = $cuisine->restaurants()
+                ->where('restaurants.status', \App\Enums\RestaurantStatus::ACTIVE)
+                ->get();
+
+
+            $this->data['cuisine'] = new CuisineResource($cuisine);
+            $this->data['restaurants'] = PopularRestaurantResource::collection($activeRestaurants);
+
+            return $this->successResponse(['status' => 200, 'data' => $this->data]);
+
+        } catch (\Exception $e) {
             return response()->json([
                 'exception' => get_class($e),
                 'message' => $e->getMessage(),
-                'trace' => $e->getTrace(),
-            ]);
+                'trace' => config('app.debug') ? $e->getTrace() : [],
+            ], 500);
         }
     }
 

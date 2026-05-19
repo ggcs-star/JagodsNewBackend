@@ -27,7 +27,7 @@ use App\Http\Resources\v1\RestaurantBannerResource;
 class RestaurantController extends BackendController
 {
     use ApiResponse;
-    protected  $restaurantService;
+    protected $restaurantService;
 
     public function __construct(RestaurantService $restaurantService)
     {
@@ -114,79 +114,49 @@ class RestaurantController extends BackendController
     //         ]);
     //     }
     // }
-    
+
     public function show($id)
     {
-        $this->data['restaurant'] = Restaurant::findOrFail($id);
-        // dd($this->data['restaurant']);
+        $restaurant = Restaurant::with([
+            'banners',
+            'menuItems' => function ($query) {
+                $query->where('status', MenuItemStatus::ACTIVE);
+            }
+        ])->findOrFail($id);
+
         $rating = new RatingsService();
-        $ratingArray = $rating->avgRating($this->data['restaurant']->id);
-          $this->data['banners'] = RestaurantBannerResource::collection(
-            Restaurant::findOrFail($id)->banners
-        );
-        $categories = [];
+        $ratingArray = $rating->avgRating($restaurant->id);
 
-        $products = MenuItem::with('categories')
-            ->where('restaurant_id', $id)
-            ->where('status', MenuItemStatus::ACTIVE)
-            ->get();
-
-        foreach ($products as $product) {
-
-            foreach ($product->categories as $cat) {
-
-                $categories[$cat->id] = [
+        $categoriesData = \App\Models\Category::whereHas('menuItems', function ($query) use ($id) {
+            $query->where('restaurant_id', $id)
+                ->where('status', MenuItemStatus::ACTIVE);
+        })
+            ->select('id', 'name')
+            ->get()
+            ->map(function ($cat) {
+                return [
                     'id' => $cat->id,
                     'name' => $cat->name,
                 ];
-            }
-        }
+            })
+            ->toArray();
 
-        $this->data['categories'] = array_values($categories);
-        $RestaurantRatings = RestaurantRating::where(['restaurant_id' => $this->data['restaurant']->id, 'status' => RatingStatus::ACTIVE])->get();
-        $this->data['timeSlots'] = TimeSlot::where(['restaurant_id' => $this->data['restaurant']->id])->get();
+        $restaurantRatings = RestaurantRating::where([
+            'restaurant_id' => $restaurant->id,
+            'status' => RatingStatus::ACTIVE
+        ])->get();
 
-        $this->data['restaurant'] = new RestaurantResource($this->data['restaurant']);
-        $this->data['menuItems'] = MenuItemResource::collection(
-            $this->data['restaurant']->menuItems()->where('status', 5)->get()
-        );
-        $this->data['reviews'] = RatingResource::collection($RestaurantRatings);
+        $timeSlots = TimeSlot::where('restaurant_id', $restaurant->id)->get();
+
+        $this->data['restaurant'] = new RestaurantResource($restaurant);
+        $this->data['banners'] = RestaurantBannerResource::collection($restaurant->banners);
+        $this->data['categories'] = $categoriesData;
+        $this->data['menuItems'] = MenuItemResource::collection($restaurant->menuItems);
+        $this->data['reviews'] = RatingResource::collection($restaurantRatings);
+        $this->data['timeSlots'] = $timeSlots;
         $this->data['countUser'] = $ratingArray['countUser'];
         $this->data['avgRating'] = $ratingArray['avgRating'];
-
-
-        // $this->data['categories_products'] = $categories_products;
-        // $this->data['other_products'] = $other_products;
-
         $this->data['vouchers'] = [];
-        // $today = date('Y-m-d h:i:s');
-        // $vouchers = Coupon::whereDate('to_date', '>', $today)
-        //     ->where('restaurant_id', '=', $this->data['restaurant']->id)
-        //     ->whereDate('from_date', '<', $today)
-        //     ->where('limit', '>', 0)->get();
-        // if (!blank($vouchers)) {
-        //     $data = [];
-        //     foreach ($vouchers as $voucher) {
-        //         $total_used = Discount::where('coupon_id', $voucher->id)->where('status', \App\Enums\DiscountStatus::ACTIVE)->count();
-        //         if ($total_used < $voucher->limit) {
-        //             $data[] = $voucher;
-        //         }
-        //     }
-        //     if (!blank($data)) {
-        //         $this->data['vouchers']         = CouponResource::collection($data);
-        //     }
-        // }
-
-        // if (auth()->user()) {
-        //     $order = Order::where([
-        //         'restaurant_id' => $id,
-        //         'status' => OrderStatus::COMPLETED,
-        //         'user_id' => auth()->user()->id
-        //     ])->get();
-        // } else {
-        //     $order = [];
-        // }
-        // $this->data['order_status'] = !blank($order);
         $this->data['order_status'] = true;
 
         try {
@@ -195,9 +165,9 @@ class RestaurantController extends BackendController
             return response()->json([
                 'exception' => get_class($e),
                 'message' => $e->getMessage(),
-                'trace' => $e->getTrace(),
-            ]);
+                'trace' => config('app.debug') ? $e->getTrace() : [],
+            ], 500);
         }
     }
-    
+
 }
