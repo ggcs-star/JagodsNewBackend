@@ -94,21 +94,19 @@ class CheckoutServiceNew
             'payment_method' => $paymentMethod,
             'payment_status' => PaymentStatus::UNPAID,
             'status' => $initialStatus,
-
-
             'address' => $addressJson,
             'lat' => $latitude,
             'long' => $longitude,
             'mobile' => $cart->user->phone ?? '',
-
-
             'sub_total' => $cart->subtotal,
             'discount' => $cart->discount,
             'gst_amount' => $cart->gst_amount,
             'delivery_charge' => $cart->delivery_charge,
-            'packing_charge' => $cart->packaging_charge ?? 0,
+            'packing_charge' => $cart->packing_charge ?? 0,
             'platform_fee' => $cart->platform_fee ?? 0,
             'large_order_fee' => $cart->large_order_fee ?? 0,
+            'surge_fee'=>$cart->surge_fee ?? 0,
+            'tip_amount' =>$cart->tip_amount ?? 0,
             'total' => $cart->total,
             'order_instructions' => $cart->order_instructions,
         ]);

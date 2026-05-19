@@ -35,10 +35,10 @@ class PaymentServiceNew
         if ($order->payment_status == PaymentStatus::PAID) {
             throw new Exception('Order already paid');
         }
-
+// dd($order->total*100);
         $razorpayOrder = $this->razorpay->order->create([
             'receipt' => 'order_' . $order->id,
-            'amount' => $order->total * 100,
+            'amount' => (int) round($order->total * 100),
             'currency' => 'INR',
         ]);
 

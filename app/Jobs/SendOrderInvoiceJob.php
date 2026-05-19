@@ -20,6 +20,10 @@ class SendOrderInvoiceJob implements ShouldQueue
 
     protected $order;
 
+    public $tries = 3;
+
+    public $backoff = 60;
+
     public function __construct(Order $order)
     {
         $this->order = $order;
@@ -27,32 +31,30 @@ class SendOrderInvoiceJob implements ShouldQueue
 
     public function handle(): void
     {
-        try {
+        $settings = Setting::pluck('value', 'key')->toArray();
 
-            $settings = Setting::pluck('value', 'key')->toArray();
-
-            if (isset($settings['mail_host'])) {
-                config([
-                    'mail.mailers.smtp.host' => $settings['mail_host'],
-                    'mail.mailers.smtp.port' => $settings['mail_port'],
-                    'mail.mailers.smtp.username' => $settings['mail_username'],
-                    'mail.mailers.smtp.password' => $settings['mail_password'],
-                    'mail.mailers.smtp.encryption' => 'tls',
-                    'mail.from.address' => $settings['mail_from_address'],
-                    'mail.from.name' => $settings['mail_from_name'],
-                ]);
-            }
-
-
-            $pdf = Pdf::loadView('emails.order.pdf_invoice', ['order' => $this->order]);
-
-
-            Mail::to($this->order->user->email)->send(new OrderInvoiceMail($this->order, $pdf->output()));
-
-            Log::info("Invoice sent successfully for Order: " . $this->order->id);
-
-        } catch (\Exception $e) {
-            Log::error("Failed to send invoice for Order " . $this->order->id . " Error: " . $e->getMessage());
+        if (isset($settings['mail_host'])) {
+            config([
+                'mail.mailers.smtp.host'       => $settings['mail_host'],
+                'mail.mailers.smtp.port'       => $settings['mail_port'],
+                'mail.mailers.smtp.username'   => $settings['mail_username'],
+                'mail.mailers.smtp.password'   => $settings['mail_password'],
+                'mail.mailers.smtp.encryption' => $settings['mail_encryption'] ?? 'tls', 
+                'mail.from.address'            => $settings['mail_from_address'],
+                'mail.from.name'               => $settings['mail_from_name'],
+            ]);
         }
+
+        $pdf = Pdf::loadView('emails.order.pdf_invoice', ['order' => $this->order]);
+
+        Mail::to($this->order->user->email)->send(new OrderInvoiceMail($this->order, $pdf->output()));
+
+        Log::info("Invoice sent successfully for Order: " . $this->order->id);
+    }
+
+ 
+    public function failed(\Throwable $exception): void
+    {
+        Log::error("SendOrderInvoiceJob Permanently Failed for Order " . $this->order->id . " Reason: " . $exception->getMessage());
     }
 }

@@ -1,15 +1,10 @@
 <?php
 
-namespace App\Traits;
+namespace App\Rules\Traits;
 use Illuminate\Http\Response;
-/*
-|--------------------------------------------------------------------------
-| Api Response Trait
-|--------------------------------------------------------------------------
-|
-| This trait will be used for any response we sent to clients.
-|
- */
+
+
+
 
 trait ApiResponse
 {

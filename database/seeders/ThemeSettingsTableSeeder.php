@@ -5,7 +5,7 @@ namespace Database\Seeders;
 use App\Models\ThemeSettings;
 use Illuminate\Database\Seeder;
 
-class ThemeTableSeeder extends Seeder
+class ThemeSettingsTableSeeder extends Seeder
 {
     /**
      

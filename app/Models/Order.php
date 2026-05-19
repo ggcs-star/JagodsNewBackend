@@ -44,7 +44,13 @@ class Order extends Model implements HasMedia
         'handling_fee',
         'packaging_fee',
         'payment_order_id',
-        'payment_id'
+        'payment_id',
+        'packing_charge',
+        'platform_fee',
+        'large_order_fee',
+        'surge_fee',
+        'tip_amount',
+        'order_instructions'
 
     ];
     protected $casts = [

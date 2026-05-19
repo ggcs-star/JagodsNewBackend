@@ -101,16 +101,16 @@ class CheckoutController extends BackendController
     {
         try {
 
-            $order = Order::where('id', $request->order_id)
-                ->where('user_id', auth()->id())
-                ->firstOrFail();
-
+           $order = Order::where('id', $request->order_id)
+    ->where('user_id', auth()->id())
+    ->firstOrFail();
+// dd($order);
             $this->paymentService->verify($order, $request->validated());
 
             $order->update([
                 'status' => \App\Enums\OrderStatus::PENDING
             ]);
-            // SendOrderInvoiceJob::dispatch($order);
+            SendOrderInvoiceJob::dispatch($order);
             return $this->successResponse([
                 'status' => 200,
                 'message' => 'Payment verified successfully',
