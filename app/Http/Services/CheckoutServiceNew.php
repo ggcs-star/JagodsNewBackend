@@ -5,6 +5,7 @@ namespace App\Http\Services;
 use App\Enums\OrderStatus;
 use App\Enums\PaymentStatus;
 use App\Enums\DiscountStatus;
+use App\Enums\PaymentMethod;
 use App\Models\Cart;
 use App\Models\Order;
 use App\Models\OrderLineItem;
@@ -33,7 +34,7 @@ class CheckoutServiceNew
         $this->invoiceService = $invoiceService;
     }
 
-    public function checkout(Cart $cart, string $paymentMethod)
+    public function checkout(Cart $cart, int $paymentMethod)
     {
         return DB::transaction(function () use ($cart, $paymentMethod) {
 
@@ -52,23 +53,20 @@ class CheckoutServiceNew
 
             $this->invoiceService->generate($order);
 
-            if ($paymentMethod === 'cod') {
-
+            if ($paymentMethod === PaymentMethod::CASH_ON_DELIVERY) {
                 // SendPetpoojaOrderJob::dispatch($order->id)->afterCommit();
                 // SendOrderNotificationsJob::dispatch($order->id)->afterCommit();
                 Log::info("CheckoutServiceNew: COD Order {$order->id} placed. Jobs dispatched.");
             } else {
-
-                Log::info("CheckoutServiceNew: Online Order {$order->id} initialized. Waiting for payment.");
+                Log::info("CheckoutServiceNew: Online Order {$order->id} initialized ID: {$paymentMethod}. Waiting for payment.");
             }
 
-            return $order->fresh(['orderLines', 'restaurant', 'user']);
+            return $order->fresh([]);
         });
     }
 
-    private function createOrder(Cart $cart, string $paymentMethod): Order
+    private function createOrder(Cart $cart, int $paymentMethod): Order
     {
-
         $addressJson = "";
         $latitude = 0.0;
         $longitude = 0.0;
@@ -82,8 +80,7 @@ class CheckoutServiceNew
             ]);
         }
 
-
-        $initialStatus = $paymentMethod === 'cod' ? OrderStatus::PENDING : OrderStatus::PAYMENT_PENDING;
+        $initialStatus = $paymentMethod === PaymentMethod::CASH_ON_DELIVERY ? OrderStatus::PENDING : OrderStatus::PAYMENT_PENDING;
 
         $order = Order::create([
             'user_id' => $cart->user_id,
@@ -94,25 +91,22 @@ class CheckoutServiceNew
             'payment_method' => $paymentMethod,
             'payment_status' => PaymentStatus::UNPAID,
             'status' => $initialStatus,
-
-
             'address' => $addressJson,
             'lat' => $latitude,
             'long' => $longitude,
             'mobile' => $cart->user->phone ?? '',
-
-
             'sub_total' => $cart->subtotal,
             'discount' => $cart->discount,
             'gst_amount' => $cart->gst_amount,
             'delivery_charge' => $cart->delivery_charge,
-            'packing_charge' => $cart->packaging_charge ?? 0,
+            'packing_charge' => $cart->packing_charge ?? 0,
             'platform_fee' => $cart->platform_fee ?? 0,
             'large_order_fee' => $cart->large_order_fee ?? 0,
+            'surge_fee' => $cart->surge_fee ?? 0,
+            'tip_amount' => $cart->tip_amount ?? 0,
             'total' => $cart->total,
             'order_instructions' => $cart->order_instructions,
         ]);
-
 
         $order->misc = json_encode([
             'order_code' => 'ORD-' . MyString::code($order->id),
@@ -150,8 +144,6 @@ class CheckoutServiceNew
         $orderItems = [];
 
         foreach ($cart->items as $item) {
-
-
             $optionTotal = 0;
             $optionsArray = $item->options ?? [];
             if (!empty($optionsArray) && is_array($optionsArray)) {
@@ -176,7 +168,6 @@ class CheckoutServiceNew
                 'updated_at' => now(),
             ];
         }
-
 
         OrderLineItem::insert($orderItems);
     }

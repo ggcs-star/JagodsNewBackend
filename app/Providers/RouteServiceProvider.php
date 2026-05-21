@@ -34,7 +34,7 @@ class RouteServiceProvider extends ServiceProvider
             Route::middleware('api')
                 ->prefix('api')
                 ->group(base_path('routes/api.php'));
-                $this->mapApiRoutes();
+            $this->mapApiRoutes();
             Route::middleware('web')
                 ->group(base_path('routes/web.php'));
             $this->mapWebRoutes();
@@ -46,23 +46,70 @@ class RouteServiceProvider extends ServiceProvider
      *
      * @return void
      */
+    /**
+     * Configure the rate limiters for the application.
+     *
+     * @return void
+     */
     protected function configureRateLimiting()
     {
+       
         RateLimiter::for('api', function (Request $request) {
             return Limit::perMinute(60)->by($request->user()?->id ?: $request->ip());
+        });
+
+
+        RateLimiter::for('cart_actions', function (Request $request) {
+            return Limit::perMinute(60)->by($request->user()?->id ?: $request->ip())
+                ->response(function () {
+                    return response()->json([
+                        'status' => 429,
+                        'message' => 'Too many cart requests. Please slow down.'
+                    ], 429);
+                });
+        });
+
+        RateLimiter::for('cart_fetch', function (Request $request) {
+            return Limit::perMinute(30)->by($request->user()?->id ?: $request->ip())
+                ->response(function () {
+                    return response()->json([
+                        'status' => 429,
+                        'message' => 'You are refreshing the cart too quickly. Please wait.'
+                    ], 429);
+                });
+        });
+
+        RateLimiter::for('checkout_strict', function (Request $request) {
+            return Limit::perMinute(5)->by($request->user()?->id ?: $request->ip())
+                ->response(function () {
+                    return response()->json([
+                        'status' => 429,
+                        'message' => 'Too many checkout attempts. Please try again after a minute.'
+                    ], 429);
+                });
+        });
+
+        RateLimiter::for('payment_verify', function (Request $request) {
+            return Limit::perMinute(10)->by($request->user()?->id ?: $request->ip())
+                ->response(function () {
+                    return response()->json([
+                        'status' => 429,
+                        'message' => 'Suspicious payment activity detected. Please wait.'
+                    ], 429);
+                });
         });
     }
 
     protected function mapWebRoutes()
     {
-        if(file_exists(storage_path('installed'))){
+        if (file_exists(storage_path('installed'))) {
             $addons = Addon::all();
-            if(!blank($addons)) {
-                foreach($addons as $addon) {
-                    if(isset(json_decode($addon->files)->web_route)) {
-                        if(File::exists(__DIR__."/../../routes/{$addon->slug}.php")) {
+            if (!blank($addons)) {
+                foreach ($addons as $addon) {
+                    if (isset(json_decode($addon->files)->web_route)) {
+                        if (File::exists(__DIR__ . "/../../routes/{$addon->slug}.php")) {
                             Route::middleware('web')
-                                ->group(__DIR__."/../../routes/{$addon->slug}.php");
+                                ->group(__DIR__ . "/../../routes/{$addon->slug}.php");
                         }
                     }
                 }
@@ -73,15 +120,15 @@ class RouteServiceProvider extends ServiceProvider
 
     protected function mapApiRoutes()
     {
-        if(file_exists(storage_path('installed'))){
+        if (file_exists(storage_path('installed'))) {
             $addons = Addon::all();
-            if(!blank($addons)) {
-                foreach($addons as $addon) {
-                    if(isset(json_decode($addon->files)->api_route)) {
-                        if(File::exists(__DIR__."/../../routes/{$addon->slug}.php")) {
+            if (!blank($addons)) {
+                foreach ($addons as $addon) {
+                    if (isset(json_decode($addon->files)->api_route)) {
+                        if (File::exists(__DIR__ . "/../../routes/{$addon->slug}.php")) {
                             Route::prefix('api')
                                 ->middleware('api')
-                                ->group(__DIR__."/../../routes/{$addon->slug}-api.php");
+                                ->group(__DIR__ . "/../../routes/{$addon->slug}-api.php");
                         }
                     }
                 }

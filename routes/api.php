@@ -148,18 +148,20 @@ Route::group(['prefix' => 'v1'], function () {
     Route::get('admin-commission-report', [AdminCommissionReportController::class, 'index']); //done
     Route::post('admin-commission-report', [AdminCommissionReportController::class, 'index']); //done
 
-    Route::get('cart', [CartController::class, 'index']);
-    Route::post('cart', [CartController::class, 'store']);
-    Route::get('cart/removeItem/{id}', [CartController::class, 'remove']);
-    Route::post('cart/clear', [CartController::class, 'clear']);
-    Route::post('cart-quantity', [CartController::class, 'quantity']);
-    Route::post('cart/apply-coupon', [CartController::class, 'applyCoupon']);
-    Route::post('cart/update', [CartController::class, 'update']);
 
-    Route::post('checkout', [CheckoutController::class, 'checkout']);
-    Route::post('payment/verify', [CheckoutController::class, 'verifyPayment']);
+    Route::get('cart', [CartController::class, 'index'])->middleware('throttle:cart_fetch');
+    Route::post('cart', [CartController::class, 'store'])->middleware('throttle:cart_actions');
+    Route::get('cart/removeItem/{id}', [CartController::class, 'remove'])->middleware('throttle:cart_actions');
+    Route::post('cart/clear', [CartController::class, 'clear'])->middleware('throttle:cart_actions');
+    Route::post('cart-quantity', [CartController::class, 'quantity'])->middleware('throttle:cart_actions');
+    Route::post('cart/apply-coupon', [CartController::class, 'applyCoupon'])->middleware('throttle:cart_actions');
+    Route::post('cart/update', [CartController::class, 'update'])->middleware('throttle:cart_actions');
+
+
+    Route::post('checkout', [CheckoutController::class, 'checkout'])->middleware('throttle:checkout_strict');
+    Route::post('/repay-order', [CheckoutController::class, 'repayOrder'])->middleware('throttle:checkout_strict');
+    Route::post('payment/verify', [CheckoutController::class, 'verifyPayment'])->middleware('throttle:payment_verify');
     Route::post('webhooks/razorpay', [WebhookController::class, 'razorpay']);
-    Route::post('/repay-order', [CheckoutController::class, 'repayOrder']);
 
     Route::resource('administrators', AdministratorController::class);
     Route::get('get-administrators', [AdministratorController::class, 'getAdministrators'])->name('administrators.get-administrators');

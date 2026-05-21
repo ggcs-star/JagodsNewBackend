@@ -10,11 +10,12 @@ use App\Http\Requests\Api\VerifyPaymentRequest;
 use App\Http\Services\CheckoutServiceNew;
 use App\Http\Services\PaymentServiceNew;
 use App\Http\Services\CartService;
+use App\Enums\PaymentMethod;
 use App\Models\Cart;
 use App\Models\Order;
 use Exception;
 use Illuminate\Support\Facades\Log;
-use App\Jobs\SendOrderInvoiceJob;  
+use App\Jobs\SendOrderInvoiceJob;
 
 class CheckoutController extends BackendController
 {
@@ -50,12 +51,9 @@ class CheckoutController extends BackendController
                 return $this->errorResponse('Cart not found', 404);
             }
 
+            $order = $this->checkoutService->checkout($cart, (int) $request->payment_method);
 
-            $order = $this->checkoutService->checkout($cart, $request->payment_method);
-
-
-            if ($request->payment_method === 'cod') {
-
+            if ((int) $request->payment_method === PaymentMethod::CASH_ON_DELIVERY) {
 
                 $this->cartService->clearCart(auth()->id());
 
@@ -65,7 +63,6 @@ class CheckoutController extends BackendController
                     'data' => $order,
                 ]);
             }
-
 
             $payment = $this->paymentService->create($order);
 
@@ -82,12 +79,13 @@ class CheckoutController extends BackendController
 
         } catch (Exception $e) {
 
-            if ($order && $request->payment_method !== 'cod') {
+
+            if ($order && (int) $request->payment_method !== PaymentMethod::CASH_ON_DELIVERY) {
 
                 $order->orderLines()->delete();
                 $order->delete();
 
-                Log::error("Razorpay Error: Order ID {$order->id} deleted due to API failure. Exception: " . $e->getMessage());
+                Log::error("Payment Error: Order ID {$order->id} deleted due to API failure. Exception: " . $e->getMessage());
             }
 
             $statusCode = (int) $e->getCode();
@@ -101,31 +99,48 @@ class CheckoutController extends BackendController
     {
         try {
 
-            $order = Order::where('id', $request->order_id)
-                ->where('user_id', auth()->id())
-                ->firstOrFail();
+            $order = Order::find($request->order_id);
+
+            if (!$order) {
+                return $this->errorResponse('Order not found', 404);
+            }
+
+            if ($order->user_id !== auth()->id()) {
+                return $this->errorResponse(
+                    'You are not authorized to verify this order',
+                    403
+                );
+            }
 
             $this->paymentService->verify($order, $request->validated());
 
             $order->update([
                 'status' => \App\Enums\OrderStatus::PENDING
             ]);
-            // SendOrderInvoiceJob::dispatch($order);
+
+            SendOrderInvoiceJob::dispatch($order);
+
             return $this->successResponse([
                 'status' => 200,
                 'message' => 'Payment verified successfully',
             ]);
 
         } catch (Exception $e) {
+
             $statusCode = (int) $e->getCode();
-            $statusCode = ($statusCode >= 100 && $statusCode <= 599) ? $statusCode : 400;
-            return $this->errorResponse($e->getMessage(), $statusCode);
+            $statusCode = ($statusCode >= 100 && $statusCode <= 599)
+                ? $statusCode
+                : 400;
+
+            return $this->errorResponse(
+                $e->getMessage(),
+                $statusCode
+            );
         }
     }
 
     public function repayOrder(Request $request)
     {
-
         $request->validate([
             'order_id' => 'required|numeric|exists:orders,id'
         ], [
@@ -134,7 +149,6 @@ class CheckoutController extends BackendController
         ]);
 
         try {
-
             $order = Order::where('id', $request->order_id)
                 ->where('user_id', auth()->id())
                 ->first();
