@@ -37,6 +37,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\v1\CheckoutController;
 use App\Http\Controllers\Api\v1\WebhookController;
+use App\Http\Controllers\Api\v1\DeviceVerificationController;
 /*
 |--------------------------------------------------------------------------
 | API Routes
@@ -55,6 +56,9 @@ Route::group(['prefix' => 'v1'], function () {
     Route::post('logout', [LogoutController::class, 'action']);
     Route::post('reg', [RegisterController::class, 'action']);
     Route::post('forgot-password', [ForgotPasswordController::class, 'sendResetLinkEmail']);
+
+    Route::post('/device/send-otp', [DeviceVerificationController::class, 'sendOtp']);
+    Route::post('/device/verify-otp', [DeviceVerificationController::class, 'verifyOtp']);
     //push notification
     Route::post('fcm-subscribe', [PushNotificationController::class, 'fcmSubscribe']);
     Route::post('fcm-unsubscribe', [PushNotificationController::class, 'fcmUnsubscribe']);
@@ -158,7 +162,10 @@ Route::group(['prefix' => 'v1'], function () {
     Route::post('cart/update', [CartController::class, 'update'])->middleware('throttle:cart_actions');
 
 
-    Route::post('checkout', [CheckoutController::class, 'checkout'])->middleware('throttle:checkout_strict');
+    Route::middleware(['require.trusted.device', 'throttle:checkout_strict'])->group(function () {
+        Route::post('/checkout', [CheckoutController::class, 'checkout']);
+    });
+    ;
     Route::post('/repay-order', [CheckoutController::class, 'repayOrder'])->middleware('throttle:checkout_strict');
     Route::post('payment/verify', [CheckoutController::class, 'verifyPayment'])->middleware('throttle:payment_verify');
     Route::post('webhooks/razorpay', [WebhookController::class, 'razorpay']);
@@ -169,4 +176,19 @@ Route::group(['prefix' => 'v1'], function () {
     //otp login
     Route::post('otp-login', [OtpLoginController::class, 'getOtp']);
     Route::post('verify-otp', [OtpLoginController::class, 'verifyOtp']);
+});
+
+Route::get('/geo-test', function () {
+
+    $location = geoip('49.36.15.20');
+
+    return response()->json([
+        'ip'       => $location->ip,
+        'country'  => $location->country,
+        'city'     => $location->city,
+        'state'    => $location->state_name,
+        'timezone' => $location->timezone,
+        'lat'      => $location->lat,
+        'lon'      => $location->lon,
+    ]);
 });

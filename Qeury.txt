@@ -149,3 +149,107 @@ ADD COLUMN tip_amount DECIMAL(10,2) NOT NULL DEFAULT 0.00;
 ALTER TABLE orders
 
 ADD COLUMN order_instructions TEXT NULL;
+
+CREATE TABLE `user_devices` (
+    `id` CHAR(36) NOT NULL,
+    `user_id` BIGINT UNSIGNED NOT NULL,
+
+    -- Core Identity
+    `device_id` VARCHAR(255) NOT NULL,
+    `fingerprint_hash` VARCHAR(255) NOT NULL,
+
+    -- Device Metadata
+    `device_name` VARCHAR(255) NULL,
+    `browser` VARCHAR(255) NULL,
+    `platform` VARCHAR(255) NULL,
+    `app_version` VARCHAR(255) NULL,
+
+    -- Geo & Network
+    `last_ip_address` VARCHAR(255) NULL,
+    `last_country` VARCHAR(255) NULL,
+    `last_city` VARCHAR(255) NULL,
+    `user_agent` TEXT NULL,
+
+    -- Advanced Fraud Control
+    `trust_level` ENUM('NEW', 'TRUSTED', 'SUSPICIOUS', 'BLOCKED') NOT NULL DEFAULT 'NEW',
+    `failed_attempts` INT UNSIGNED NOT NULL DEFAULT 0,
+
+    `last_active_at` TIMESTAMP NULL,
+
+    `created_at` TIMESTAMP NULL DEFAULT NULL,
+    `updated_at` TIMESTAMP NULL DEFAULT NULL,
+    `deleted_at` TIMESTAMP NULL DEFAULT NULL,
+
+    PRIMARY KEY (`id`),
+
+    UNIQUE KEY `user_devices_fingerprint_hash_unique` (`fingerprint_hash`),
+
+    KEY `user_devices_device_id_index` (`device_id`),
+    KEY `user_devices_user_id_foreign` (`user_id`),
+
+    CONSTRAINT `user_devices_user_id_foreign`
+        FOREIGN KEY (`user_id`)
+        REFERENCES `users` (`id`)
+        ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+
+CREATE TABLE `security_audit_logs` (
+    `id` CHAR(36) NOT NULL,
+
+    -- Optional links
+    `user_id` BIGINT UNSIGNED NULL,
+    `user_device_id` CHAR(36) NULL,
+
+    `device_id` VARCHAR(255) NULL,
+
+    -- Categorized Action Tracking
+    `event_category` VARCHAR(255) NOT NULL,
+    `action_type` VARCHAR(255) NOT NULL,
+    `api_endpoint` VARCHAR(255) NULL,
+    `ip_address` VARCHAR(255) NULL,
+
+    -- Analytics & Tracing
+    `severity_score` TINYINT UNSIGNED NOT NULL DEFAULT 1,
+    `response_status` SMALLINT UNSIGNED NULL,
+    `request_id` CHAR(36) NULL,
+
+    -- Metadata JSON
+    `metadata` JSON NULL,
+
+    `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    PRIMARY KEY (`id`),
+
+    -- Indexes
+    KEY `security_audit_logs_device_id_index` (`device_id`),
+    KEY `security_audit_logs_event_category_index` (`event_category`),
+    KEY `security_audit_logs_action_type_index` (`action_type`),
+    KEY `security_audit_logs_request_id_index` (`request_id`),
+
+    KEY `security_audit_logs_user_id_created_at_index` (`user_id`, `created_at`),
+    KEY `security_audit_logs_event_category_created_at_index` (`event_category`, `created_at`),
+
+    -- Foreign Keys
+    CONSTRAINT `security_audit_logs_user_id_foreign`
+        FOREIGN KEY (`user_id`)
+        REFERENCES `users` (`id`)
+        ON DELETE SET NULL,
+
+    CONSTRAINT `security_audit_logs_user_device_id_foreign`
+        FOREIGN KEY (`user_device_id`)
+        REFERENCES `user_devices` (`id`)
+        ON DELETE SET NULL
+
+) ENGINE=InnoDB
+DEFAULT CHARSET=utf8mb4
+COLLATE=utf8mb4_unicode_ci;
+
+
+
+ALTER TABLE user_devices
+MODIFY fingerprint_hash VARCHAR(255) NULL;
+
+UPDATE user_devices
+SET fingerprint_hash = NULL
+WHERE fingerprint_hash = '';

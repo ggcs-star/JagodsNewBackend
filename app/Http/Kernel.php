@@ -44,6 +44,7 @@ class Kernel extends HttpKernel
             // \Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful::class,
             'throttle:api',
             \Illuminate\Routing\Middleware\SubstituteBindings::class,
+            \App\Http\Middleware\DeviceIdentificationMiddleware::class,
         ],
     ];
 
@@ -72,5 +73,6 @@ class Kernel extends HttpKernel
         'permission'         => \Spatie\Permission\Middlewares\PermissionMiddleware::class,
         'role_or_permission' => \Spatie\Permission\Middlewares\RoleOrPermissionMiddleware::class,
         'backend_permission' => \App\Http\Middleware\IsHasBackendPermission::class,
+        'require.trusted.device' => \App\Http\Middleware\RequireTrustedDevice::class,
     ];
 }
