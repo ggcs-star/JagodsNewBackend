@@ -20,7 +20,7 @@ class StoreCartRequest extends FormRequest
             'options' => 'nullable|array',
             'options.*' => 'nullable|numeric|exists:menu_item_options,id',
             'instructions' => 'nullable|string|max:500',
-            'quantity' => 'nullable|integer|min:1',
+            'quantity' => 'nullable|integer|min:0',
             'order_instructions' => 'nullable|string|max:1000',
         ];
     }

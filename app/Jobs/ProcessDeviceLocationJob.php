@@ -15,14 +15,11 @@ class ProcessDeviceLocationJob implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
-
     public int $tries = 3;
     public int $timeout = 10;
     public int $backoff = 5;
 
     protected string $deviceId;
-
-
     protected string $ipAddress;
 
     public function __construct(string $deviceId, string $ipAddress)
@@ -33,7 +30,6 @@ class ProcessDeviceLocationJob implements ShouldQueue
 
     public function handle(): void
     {
-
         if (
             app()->environment('local') &&
             (
@@ -46,61 +42,59 @@ class ProcessDeviceLocationJob implements ShouldQueue
         }
 
         if (!filter_var($this->ipAddress, FILTER_VALIDATE_IP)) {
-
             Log::warning('GeoIP skipped due to invalid IP', [
                 'device_id' => $this->deviceId,
                 'ip' => $this->ipAddress,
             ]);
-
             return;
         }
 
         $device = UserDevice::find($this->deviceId);
 
         if (!$device) {
-
             Log::warning('GeoIP device not found', [
                 'device_id' => $this->deviceId,
             ]);
-
             return;
         }
 
         try {
-
-
             $location = geoip($this->ipAddress);
 
             if (!$location) {
-
                 Log::warning('GeoIP returned empty result', [
                     'device_id' => $this->deviceId,
                     'ip' => $this->ipAddress,
                 ]);
-
                 return;
             }
 
+         
             $country = $location->country ?? null;
             $city = $location->city ?? null;
-
+            $countryCode = $location->iso_code ?? null;
+            $timezone = $location->timezone ?? null;
+            $lat = $location->lat ?? null;
+            $lon = $location->lon ?? null;
 
             if (
                 $device->last_country === $country &&
-                $device->last_city === $city
+                $device->last_city === $city &&
+                $device->country_code === $countryCode
             ) {
-
                 Log::info('GeoIP unchanged, skipping update', [
                     'device_id' => $this->deviceId,
                 ]);
-
                 return;
             }
-
 
             $device->update([
                 'last_country' => $country,
                 'last_city' => $city,
+                'country_code' => $countryCode,
+                'timezone' => $timezone,
+                'lat' => $lat,
+                'lon' => $lon,
             ]);
 
             Log::info('Device GeoIP updated successfully', [
@@ -108,26 +102,18 @@ class ProcessDeviceLocationJob implements ShouldQueue
                 'ip' => $this->ipAddress,
                 'country' => $country,
                 'city' => $city,
+                'timezone' => $timezone
             ]);
 
-
-
-            // if ($device->last_country !== $country) {
-            //     dispatch(new AnalyzeSuspiciousLocationJob($device));
-            // }
-
         } catch (Throwable $e) {
-
             Log::error('GeoIP processing failed', [
                 'device_id' => $this->deviceId,
                 'ip' => $this->ipAddress,
                 'error' => $e->getMessage(),
             ]);
-
             throw $e;
         }
     }
-
 
     public function failed(Throwable $exception): void
     {

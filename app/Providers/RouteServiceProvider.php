@@ -51,16 +51,60 @@ class RouteServiceProvider extends ServiceProvider
      *
      * @return void
      */
+    /**
+     * Helper function to get consistent Device ID for rate limiting
+     */
+    protected function resolveDeviceIdentifier(Request $request): string
+    {
+        $rawDeviceId = $request->header('X-Device-ID');
+
+        if (!$rawDeviceId) {
+            return 'fb_' . md5($request->userAgent() . $request->ip());
+        }
+
+        return $rawDeviceId;
+    }
+
+    /**
+     * Configure the rate limiters for the application.
+     *
+     * @return void
+     */
     protected function configureRateLimiting()
     {
-       
+        // 1. General API Limit
         RateLimiter::for('api', function (Request $request) {
-            return Limit::perMinute(60)->by($request->user()?->id ?: $request->ip());
+            $deviceId = $this->resolveDeviceIdentifier($request);
+            return Limit::perMinute(60)->by($request->user()?->id ?: $deviceId);
         });
 
+        RateLimiter::for('login_attempts', function (Request $request) {
+            $deviceId = $this->resolveDeviceIdentifier($request);
+            $identifier = $request->input('email', $request->input('phone', '')) . '|' . $deviceId;
+
+            return Limit::perMinute(5)->by($identifier)
+                ->response(function () {
+                    return response()->json([
+                        'status' => 429,
+                        'message' => 'Too many login attempts. Please try again later.'
+                    ], 429);
+                });
+        });
+
+        RateLimiter::for('otp_send', function (Request $request) {
+            $deviceId = $this->resolveDeviceIdentifier($request);
+            return Limit::perMinutes(1, 2)->by($request->user()?->id ?: $deviceId)
+                ->response(function () {
+                    return response()->json([
+                        'status' => 429,
+                        'message' => 'Too many OTP requests. Please wait a minute.'
+                    ], 429);
+                });
+        });
 
         RateLimiter::for('cart_actions', function (Request $request) {
-            return Limit::perMinute(60)->by($request->user()?->id ?: $request->ip())
+            $deviceId = $this->resolveDeviceIdentifier($request);
+            return Limit::perMinute(20)->by($request->user()?->id ?: $deviceId)
                 ->response(function () {
                     return response()->json([
                         'status' => 429,
@@ -70,7 +114,8 @@ class RouteServiceProvider extends ServiceProvider
         });
 
         RateLimiter::for('cart_fetch', function (Request $request) {
-            return Limit::perMinute(30)->by($request->user()?->id ?: $request->ip())
+            $deviceId = $this->resolveDeviceIdentifier($request);
+            return Limit::perMinute(30)->by($request->user()?->id ?: $deviceId)
                 ->response(function () {
                     return response()->json([
                         'status' => 429,
@@ -80,7 +125,8 @@ class RouteServiceProvider extends ServiceProvider
         });
 
         RateLimiter::for('checkout_strict', function (Request $request) {
-            return Limit::perMinute(5)->by($request->user()?->id ?: $request->ip())
+            $deviceId = $this->resolveDeviceIdentifier($request);
+            return Limit::perMinute(5)->by($request->user()?->id ?: $deviceId)
                 ->response(function () {
                     return response()->json([
                         'status' => 429,
@@ -90,7 +136,8 @@ class RouteServiceProvider extends ServiceProvider
         });
 
         RateLimiter::for('payment_verify', function (Request $request) {
-            return Limit::perMinute(10)->by($request->user()?->id ?: $request->ip())
+            $deviceId = $this->resolveDeviceIdentifier($request);
+            return Limit::perMinute(10)->by($request->user()?->id ?: $deviceId)
                 ->response(function () {
                     return response()->json([
                         'status' => 429,

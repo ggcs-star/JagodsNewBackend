@@ -253,3 +253,53 @@ MODIFY fingerprint_hash VARCHAR(255) NULL;
 UPDATE user_devices
 SET fingerprint_hash = NULL
 WHERE fingerprint_hash = '';
+
+
+
+ALTER TABLE user_devices
+DROP INDEX user_devices_fingerprint_hash_unique;
+
+
+ALTER TABLE user_devices
+ADD INDEX user_devices_fingerprint_hash_index (fingerprint_hash);
+
+
+ALTER TABLE user_devices
+
+-- 1. Hardware & Locale Intelligence
+ADD COLUMN device_type ENUM('MOBILE', 'TABLET', 'DESKTOP', 'BOT', 'UNKNOWN')
+DEFAULT 'UNKNOWN' AFTER device_name,
+
+ADD COLUMN language VARCHAR(255) NULL AFTER browser,
+
+ADD COLUMN country_code VARCHAR(5) NULL AFTER last_country,
+
+ADD COLUMN timezone VARCHAR(255) NULL AFTER last_city,
+
+-- Latitude & Longitude
+ADD COLUMN lat DECIMAL(10,8) NULL AFTER timezone,
+
+ADD COLUMN lon DECIMAL(11,8) NULL AFTER lat,
+
+-- 2. Advanced Risk & Fraud Scoring
+ADD COLUMN risk_score INT DEFAULT 0 AFTER trust_level,
+
+ADD COLUMN risk_reason JSON NULL AFTER risk_score,
+
+ADD COLUMN vpn_detected TINYINT(1) DEFAULT 0 AFTER risk_reason,
+
+ADD COLUMN proxy_detected TINYINT(1) DEFAULT 0 AFTER vpn_detected,
+
+ADD COLUMN is_emulator TINYINT(1) DEFAULT 0 AFTER proxy_detected,
+
+-- 3. Behavioral Timestamps & Analytics
+ADD COLUMN last_login_at TIMESTAMP NULL AFTER last_active_at,
+
+ADD COLUMN login_count INT UNSIGNED DEFAULT 0 AFTER last_login_at,
+
+ADD COLUMN is_current TINYINT(1) DEFAULT 0 AFTER login_count,
+
+-- 4. Lifecycle Timestamps
+ADD COLUMN trusted_at TIMESTAMP NULL AFTER trust_level,
+
+ADD COLUMN blocked_at TIMESTAMP NULL AFTER trusted_at;

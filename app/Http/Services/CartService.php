@@ -60,22 +60,42 @@ class CartService
             $data['options'] ?? []
         );
 
-        $quantity = $data['quantity'] ?? 1;
+
+        $requestedQty = $data['quantity'] ?? 1;
+
+
+        if ($requestedQty > $menuItem->max_cart_quantity) {
+            throw new Exception(
+                "Maximum allowed quantity is {$menuItem->max_cart_quantity}",
+                422
+            );
+        }
 
         $existingItem = CartItem::where('cart_id', $cart->id)
             ->where('menu_item_id', $menuItem->id)
             ->where('variation_id', $priceDetails['variation_id'])
             ->first();
 
-        $newQty = ($existingItem ? $existingItem->quantity : 0) + $quantity;
 
-        if ($newQty > $menuItem->max_cart_quantity) {
-            throw new Exception("Maximum allowed quantity is {$menuItem->max_cart_quantity}", 422);
+        if ($requestedQty == 0) {
+
+            if ($existingItem) {
+                $existingItem->delete();
+            }
+
+            $this->updateCartTotals($cart);
+
+            return $cart->fresh([
+                'items'
+            ]);
         }
 
-        $totalPrice = $priceDetails['price'] * $newQty;
+
+        $totalPrice = $priceDetails['price'] * $requestedQty;
 
         if ($existingItem) {
+
+
             $existingItem->update([
                 'menu_name' => $menuItem->name,
                 'menu_slug' => $menuItem->slug,
@@ -87,11 +107,13 @@ class CartService
                 'total_price' => $totalPrice,
                 'options' => $priceDetails['options'],
                 'instructions' => $data['instructions'] ?? null,
-                'quantity' => $newQty,
+                'quantity' => $requestedQty,
                 'is_available' => true,
                 'is_price_changed' => false,
             ]);
+
         } else {
+
             CartItem::create([
                 'cart_id' => $cart->id,
                 'menu_item_id' => $menuItem->id,
@@ -103,10 +125,10 @@ class CartService
                 'unit_price' => $menuItem->unit_price,
                 'discount_price' => $menuItem->discount_price,
                 'price' => $priceDetails['price'],
-                'total_price' => $priceDetails['price'] * $quantity,
+                'total_price' => $totalPrice,
                 'options' => $priceDetails['options'],
                 'instructions' => $data['instructions'] ?? null,
-                'quantity' => $quantity,
+                'quantity' => $requestedQty,
                 'is_available' => true,
                 'is_price_changed' => false,
             ]);
@@ -115,7 +137,7 @@ class CartService
         $this->updateCartTotals($cart);
 
         return $cart->fresh([
-          
+            'items'
         ]);
     }
 
@@ -359,7 +381,7 @@ class CartService
         $packagingCharge = $totalQuantity * $perItemPackagingCharge;
 
         $platformFee = $subtotal > 0 ? (float) ($settings['platform_fee'] ?? 0) : 0;
-        
+
         $surgeFee = $subtotal > 0 ? (float) ($settings['surge_fee'] ?? 0) : 0;
 
         $deliveryCharge = $this->calculateDeliveryCharge($cart, $settings, $subtotal);
@@ -378,12 +400,12 @@ class CartService
             $deliveryCharge = 0;
             $packagingCharge = 0;
             $platformFee = 0;
-            $surgeFee = 0; 
+            $surgeFee = 0;
             $gstAmount = 0;
             $largeOrderFee = 0;
             $tipAmount = 0;
         } else {
-        
+
             $total = max(0, $taxableAmount + $gstAmount + $deliveryCharge + $packagingCharge + $platformFee + $surgeFee + $largeOrderFee + $tipAmount);
         }
 
@@ -394,7 +416,7 @@ class CartService
             'delivery_charge' => round($deliveryCharge, 2),
             'packing_charge' => round($packagingCharge, 2),
             'platform_fee' => round($platformFee, 2),
-            'surge_fee' => round($surgeFee, 2), 
+            'surge_fee' => round($surgeFee, 2),
             'large_order_fee' => round($largeOrderFee, 2),
             'tip_amount' => round($tipAmount, 2),
             'total' => round($total, 2),
