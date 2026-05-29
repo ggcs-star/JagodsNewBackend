@@ -38,6 +38,8 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\v1\CheckoutController;
 use App\Http\Controllers\Api\v1\WebhookController;
 use App\Http\Controllers\Api\v1\DeviceVerificationController;
+use App\Http\Controllers\Api\v1\Auth\RefreshTokenController;
+use App\Http\Controllers\Api\v1\UniversalOtpController;
 /*
 |--------------------------------------------------------------------------
 | API Routes
@@ -52,15 +54,22 @@ use App\Http\Controllers\Api\v1\DeviceVerificationController;
 Route::group(['prefix' => 'v1'], function () {
 
     Route::post('login', [LoginController::class, 'action'])->middleware('throttle:login_attempts');
+    Route::post('refresh-token', [RefreshTokenController::class, 'refresh']);
+    // Route::post('reg', [RegisterController::class, 'action']);
+    Route::post('reg', [RegisterController::class, 'sendRegisterOtp']);
+    Route::post('register/verify-otp', [RegisterController::class, 'verifyRegisterOtp']);
     Route::post('social-login', [SocialLoginController::class, 'action'])->middleware('throttle:login_attempts');
     Route::post('logout', [LogoutController::class, 'action']);
     Route::post('forgot-password', [ForgotPasswordController::class, 'sendResetLinkEmail'])->middleware('throttle:otp_send');
 
-    Route::post('otp-login', [OtpLoginController::class, 'getOtp'])->middleware('throttle:otp_send');
-    Route::post('verify-otp', [OtpLoginController::class, 'verifyOtp'])->middleware('throttle:login_attempts');
+    Route::post('/otp/send', [UniversalOtpController::class, 'send'])->middleware('throttle:otp_send');
+    Route::post('/otp/verify', [UniversalOtpController::class, 'verify'])->middleware('throttle:login_attempts');
 
-    Route::post('/device/send-otp', [DeviceVerificationController::class, 'sendOtp'])->middleware('throttle:otp_send');
-    Route::post('/device/verify-otp', [DeviceVerificationController::class, 'verifyOtp'])->middleware('throttle:login_attempts');
+    // Route::post('otp-login', [OtpLoginController::class, 'getOtp'])->middleware('throttle:otp_send');
+    // Route::post('verify-otp', [OtpLoginController::class, 'verifyOtp'])->middleware('throttle:login_attempts');
+
+    // Route::post('/device/send-otp', [DeviceVerificationController::class, 'sendOtp'])->middleware('throttle:otp_send');
+    // Route::post('/device/verify-otp', [DeviceVerificationController::class, 'verifyOtp'])->middleware('throttle:login_attempts');
 
     Route::get('me', [MeController::class, 'action']);
     Route::get('refresh', [MeController::class, 'refresh']);

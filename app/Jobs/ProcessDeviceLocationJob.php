@@ -9,6 +9,7 @@ use Illuminate\Queue\SerializesModels;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
+use Illuminate\Support\Facades\Http;
 use Throwable;
 
 class ProcessDeviceLocationJob implements ShouldQueue
@@ -38,7 +39,7 @@ class ProcessDeviceLocationJob implements ShouldQueue
                 str_starts_with($this->ipAddress, '192.168.')
             )
         ) {
-            $this->ipAddress = '49.36.15.20';
+            $this->ipAddress = '43.204.105.75';
         }
 
         if (!filter_var($this->ipAddress, FILTER_VALIDATE_IP)) {
@@ -59,30 +60,39 @@ class ProcessDeviceLocationJob implements ShouldQueue
         }
 
         try {
-            $location = geoip($this->ipAddress);
 
-            if (!$location) {
-                Log::warning('GeoIP returned empty result', [
+            $response = Http::timeout(10)->get("http://ip-api.com/json/{$this->ipAddress}?fields=status,country,city,countryCode,timezone,lat,lon,proxy,hosting");
+
+            if ($response->failed() || $response->json('status') !== 'success') {
+                Log::warning('IP-API returned empty or failed result', [
                     'device_id' => $this->deviceId,
                     'ip' => $this->ipAddress,
                 ]);
                 return;
             }
 
-         
-            $country = $location->country ?? null;
-            $city = $location->city ?? null;
-            $countryCode = $location->iso_code ?? null;
-            $timezone = $location->timezone ?? null;
-            $lat = $location->lat ?? null;
-            $lon = $location->lon ?? null;
+            $data = $response->json();
+
+            $country = $data['country'] ?? null;
+            $city = $data['city'] ?? null;
+            $countryCode = $data['countryCode'] ?? null;
+            $timezone = $data['timezone'] ?? null;
+            $lat = $data['lat'] ?? null;
+            $lon = $data['lon'] ?? null;
+
+            $isProxy = $data['proxy'] ?? false;
+            $isHosting = $data['hosting'] ?? false;
+
+            $vpnDetected = ($isProxy || $isHosting) ? 1 : 0;
+            $proxyDetected = $isProxy ? 1 : 0;
 
             if (
                 $device->last_country === $country &&
                 $device->last_city === $city &&
-                $device->country_code === $countryCode
+                $device->country_code === $countryCode &&
+                $device->vpn_detected === $vpnDetected
             ) {
-                Log::info('GeoIP unchanged, skipping update', [
+                Log::info('GeoIP & Security Flags unchanged, skipping update', [
                     'device_id' => $this->deviceId,
                 ]);
                 return;
@@ -95,14 +105,15 @@ class ProcessDeviceLocationJob implements ShouldQueue
                 'timezone' => $timezone,
                 'lat' => $lat,
                 'lon' => $lon,
+                'vpn_detected' => $vpnDetected,
+                'proxy_detected' => $proxyDetected,
             ]);
 
-            Log::info('Device GeoIP updated successfully', [
+            Log::info('Device GeoIP & Security Flags updated successfully', [
                 'device_id' => $this->deviceId,
                 'ip' => $this->ipAddress,
                 'country' => $country,
-                'city' => $city,
-                'timezone' => $timezone
+                'vpn' => $vpnDetected,
             ]);
 
         } catch (Throwable $e) {

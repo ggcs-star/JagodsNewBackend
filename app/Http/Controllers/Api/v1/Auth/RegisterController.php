@@ -5,102 +5,100 @@ namespace App\Http\Controllers\Api\v1\Auth;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\RegisterRequest;
 use App\Http\Resources\v1\RegisterResource;
-use App\Models\DeliveryBoyAccount;
-use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Spatie\Permission\Models\Role;
+use App\Http\Services\Auth\AuthRegisterService;
 
 class RegisterController extends Controller
 {
-    public function action(Request $request)
+    protected $registerService;
+
+    public function __construct(AuthRegisterService $registerService)
+    {
+        $this->registerService = $registerService;
+    }
+
+
+    public function sendRegisterOtp(Request $request)
     {
         $validator = new RegisterRequest();
-
         $rules = $validator->rules();
+
         if ($request->get('role') == 3 || $request->get('role') == 4) {
             $rules['deposit_amount'] = 'nullable|numeric';
-            $rules['limit_amount']   = 'nullable|numeric';
+            $rules['limit_amount'] = 'nullable|numeric';
         }
 
         $validator = Validator::make($request->all(), $rules);
         if ($validator->fails()) {
             return response()->json([
-                'status'  => 422,
+                'status' => 422,
                 'message' => $validator->errors(),
             ], 422);
         }
 
-        $role     = Role::find($request->get('role'));
-
+        $role = Role::find($request->get('role'));
         if (blank($role)) {
             return response()->json([
-                'data'    => [],
-                'message' => 'You given role not found',
-                'status'  => 401,
+                'status' => 401,
+                'message' => 'Given role not found',
+                'data' => [],
             ], 401);
         }
 
-        $first_name = '';
-        $last_name  = '';
-        if ($request->has('name')) {
-            $parts      = $this->split_name($request->get('name'));
-            $first_name = $parts[0];
-            $last_name  = $parts[1];
-        }
+        $response = $this->registerService->processRegistrationOtp(
+            $request->all(),
+            $request->header('X-Device-ID'),
+            $request->ip()
+        );
 
-        $username = '';
-        if ($request->has('email')) {
-            $username = $this->username($request->get('email'));
-        }
-
-        $userArray = [
-            'first_name' => $first_name,
-            'last_name'  => $last_name,
-            'email'      => $request->get('email'),
-            'username'   => $username,
-            'phone'      => $request->get('phone'),
-            'password'   => bcrypt($request->get('password')),
-        ];
-
-        $user     = User::create($userArray);
-        $mainuser = User::find($user->id);
-
-        $mainuser->assignRole($role->name);
-
-        if ($request->role == 4) {
-            $deliveryBoyAccount                  = new DeliveryBoyAccount();
-            $deliveryBoyAccount->user_id         = $mainuser->id;
-            $deliveryBoyAccount->delivery_charge = 0;
-            $deliveryBoyAccount->balance         = 0;
-            $deliveryBoyAccount->save();
-        }
-
-        if (!$token = auth()->guard('api')->attempt($request->only('email', 'password'))) {
+        if (!$response['status']) {
             return response()->json([
-                'data'    => [],
-                'message' => 'You try to using invalid username or password',
-                'status'  => 401,
-            ], 401);
+                'status' => $response['code'],
+                'message' => $response['message']
+            ], $response['code']);
         }
-        return (new RegisterResource($mainuser))
+
+        return response()->json([
+            'status' => 200,
+            'message' => $response['message'],
+            'temp_token' => $response['temp_token'],
+            'expires_in' => $response['expires_in']
+        ], 200);
+    }
+
+
+    public function verifyRegisterOtp(Request $request)
+    {
+        $request->validate([
+            'temp_token' => 'required|string',
+            'otp' => 'required|numeric'
+        ]);
+
+        $response = $this->registerService->verifyAndRegister(
+            $request,
+            $request->temp_token,
+            $request->otp,
+            $request->header('X-Device-ID')
+        );
+
+        if (!$response['status']) {
+            return response()->json([
+                'status' => $response['code'],
+                'message' => $response['message']
+            ], $response['code']);
+        }
+
+        $loginData = $response['login_data'];
+
+        return (new RegisterResource($response['user']))
             ->additional([
-                'token' => $token,
+                'token' => $loginData['token'],
+                'refresh_token' => $loginData['refresh_token'],
+                'expires_in' => $loginData['expires_in'],
+                'restaurant' => $loginData['restaurant_data'] ?? [],
+                'waiter_id' => $loginData['waiter_id_data'] ?? 0,
             ], 200);
-
-    }
-
-    private function split_name($name)
-    {
-        $name       = trim($name);
-        $last_name  = (strpos($name, ' ') === false) ? '' : preg_replace('#.*\s([\w-]*)$#', '$1', $name);
-        $first_name = trim(preg_replace('#' . $last_name . '#', '', $name));
-        return [$first_name, $last_name];
-    }
-
-    private function username($email)
-    {
-        $emails = explode('@', $email);
-        return $emails[0] . mt_rand();
     }
 }

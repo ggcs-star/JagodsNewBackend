@@ -45,6 +45,7 @@ class Kernel extends HttpKernel
             'throttle:api',
             \Illuminate\Routing\Middleware\SubstituteBindings::class,
             \App\Http\Middleware\DeviceIdentificationMiddleware::class,
+            \App\Http\Middleware\RequireActiveSessionMiddleware::class,
         ],
     ];
 
