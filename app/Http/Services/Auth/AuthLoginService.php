@@ -11,6 +11,8 @@ use App\Http\Resources\v1\RestaurantResource;
 use App\Http\Services\Security\SecurityRiskService;
 use App\Http\Services\DeviceIdentificationService;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Cache;
+use Jenssegers\Agent\Agent; 
 use Exception;
 use App\Http\Services\OtpService;
 
@@ -23,7 +25,7 @@ class AuthLoginService
     public function __construct(
         DeviceIdentificationService $deviceService,
         SecurityRiskService $riskService,
-        OtpService $otpService
+        OtpService $otpService 
     ) {
         $this->deviceService = $deviceService;
         $this->riskService = $riskService;
@@ -51,16 +53,31 @@ class AuthLoginService
             return ['status' => false, 'code' => 403, 'message' => "You don't have permission to login to this portal."];
         }
 
+        $userAgent = $request->userAgent();
+        $language = $request->header('Accept-Language');
+        $ip = $request->ip();
+        
+        $agent = new Agent();
+        $agent->setUserAgent($userAgent);
+
+        $rawDeviceId = $request->header('X-Device-ID');
+        if (empty($rawDeviceId)) {
+            $deviceId = 'fb_' . hash('sha256', $userAgent . $language . $ip);
+        } else {
+            $deviceId = $rawDeviceId;
+        }
+
         $device = $this->deviceService->processDevice(
             $user,
-            $request->header('X-Device-ID'),
+            $deviceId,
             $request->header('X-App-Version', '1.0.0'),
-            $request->ip(),
-            $request->userAgent(),
-            $request->header('Accept-Language')
+            $ip,
+            $userAgent,
+            $language,
+            $agent 
         );
 
-        $riskAnalysis = $this->riskService->analyzeRisk($device, $user, $request->ip());
+        $riskAnalysis = $this->riskService->analyzeRisk($device, $user, $ip);
 
         if ($riskAnalysis['action'] === 'BLOCK') {
             $device->update([
@@ -77,19 +94,18 @@ class AuthLoginService
         }
 
         if ($riskAnalysis['action'] === 'REQUIRE_OTP') {
-
             $otpResult = $this->otpService->generateAndSend(
                 $user,
                 'device_verification',
-                $request->header('X-Device-ID'),
-                $request->ip()
+                $deviceId,
+                $ip
             );
 
             if (!$otpResult['status']) {
                 return [
-                    'status' => false,
-                    'code' => $otpResult['code'] ?? 400,
-                    'message' => $otpResult['message'] 
+                    'status'  => false,
+                    'code'    => $otpResult['code'] ?? 400,
+                    'message' => $otpResult['message']
                 ];
             }
 
@@ -102,6 +118,7 @@ class AuthLoginService
                 'device_id' => $device->id
             ];
         }
+
         return $this->generateTokensAndSession($user, $device, $request, $requestedRole);
     }
 
@@ -123,8 +140,8 @@ class AuthLoginService
 
     private function generateTokensAndSession($user, $device, $request, $role): array
     {
-        $token = auth('api')->login($user);
         $refreshToken = Str::random(64);
+        $session = null;
 
         try {
             DB::beginTransaction();
@@ -141,22 +158,26 @@ class AuthLoginService
                     ->whereNull('revoked_at')
                     ->update(['revoked_at' => now()]);
 
-                DeviceSession::create([
+                $session = DeviceSession::create([
                     'user_id' => $user->id,
                     'user_device_id' => $device->id,
                     'refresh_token' => hash('sha256', $refreshToken),
                     'ip_address' => $request->ip(),
                     'expires_at' => now()->addDays(90),
                 ]);
+
+                Cache::put("session_valid:{$session->id}", $user->id, now()->addDays(90));
             }
 
             DB::commit();
 
         } catch (Exception $e) {
             DB::rollBack();
-            auth('api')->logout();
             return ['status' => false, 'code' => 500, 'message' => 'Internal server error while creating session.'];
         }
+
+        $customClaims = $session ? ['sid' => $session->id] : [];
+        $token = auth('api')->claims($customClaims)->login($user);
 
         $restaurant = [];
         $waiterId = 0;

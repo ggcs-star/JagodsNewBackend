@@ -28,7 +28,7 @@ class SecurityRiskService
         }
 
         if ($device->device_type === 'BOT') {
-            $riskScore += 50; 
+            $riskScore += 0; 
             $riskReasons[] = 'Malicious Bot or Automated Script detected.';
         } elseif ($device->device_type === 'EMULATOR' || $device->is_emulator) {
             $riskScore += 40; 

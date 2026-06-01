@@ -12,6 +12,7 @@ use App\Http\Resources\v1\RestaurantResource;
 use App\Http\Resources\v1\PrivateUserResource;
 use App\Http\Services\DeviceIdentificationService;
 use Illuminate\Support\Facades\Cache;
+use Jenssegers\Agent\Agent;
 class UniversalOtpController extends Controller
 {
     protected $otpService;
@@ -101,15 +102,30 @@ class UniversalOtpController extends Controller
         return User::where($field, $input)->first();
     }
 
-    private function handleSuccessfulLogin($user, $request)
+  private function handleSuccessfulLogin($user, $request)
     {
+        $userAgent = $request->userAgent();
+        $language = $request->header('Accept-Language');
+        $ip = $request->ip();
+        
+        $agent = new \Jenssegers\Agent\Agent();
+        $agent->setUserAgent($userAgent);
+
+        $rawDeviceId = $request->header('X-Device-ID');
+        if (empty($rawDeviceId)) {
+            $finalDeviceId = 'fb_' . hash('sha256', $userAgent . $language . $ip);
+        } else {
+            $finalDeviceId = $rawDeviceId;
+        }
+
         $device = $this->deviceService->processDevice(
             $user,
-            $request->header('X-Device-ID'),
+            $finalDeviceId,
             $request->header('X-App-Version', '1.0.0'),
-            $request->ip(),
-            $request->userAgent(),
-            $request->header('Accept-Language')
+            $ip,
+            $userAgent,
+            $language,
+            $agent 
         );
 
         $role = $request->role;
@@ -126,7 +142,7 @@ class UniversalOtpController extends Controller
         return response()->json([
             'status' => 200,
             'message' => 'Successfully verified and logged in.',
-            'data' => new PrivateUserResource($response['user']),
+            'data' => new PrivateUserResource($response['user']), 
             'token' => $response['token'],
             'refresh_token' => $response['refresh_token'],
             'expires_in' => $response['expires_in'],

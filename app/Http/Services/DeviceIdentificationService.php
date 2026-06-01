@@ -5,25 +5,24 @@ namespace App\Http\Services;
 use App\Models\UserDevice;
 use Jenssegers\Agent\Agent;
 use App\Jobs\ProcessDeviceLocationJob;
-
+use Carbon\Carbon;
 class DeviceIdentificationService
 {
-    public function processDevice($user, $rawDeviceId, $appVersion, $ip, $userAgent, $language = null)
+    const TRUST_NEW = 'NEW';
+    const TRUST_VERIFIED = 'VERIFIED';
+    const TRUST_TRUSTED = 'TRUSTED';
+    const TRUST_SUSPICIOUS = 'SUSPICIOUS';
+    const TRUST_BLOCKED = 'BLOCKED';
+
+    public function processDevice($user, string $deviceId, string $appVersion, string $ip, ?string $userAgent, ?string $language, Agent $agent): UserDevice
     {
-        $agent = new Agent();
-        $agent->setUserAgent($userAgent);
-        
-        $browser = $agent->browser() ?: 'Unknown';
-        $platform = $agent->platform() ?: 'Unknown';
-
-        // 🚨 FIX 1: IP Hataya Fallback se! Ab Wi-Fi se 5G jane par device naya nahi banega.
-        $deviceId = $rawDeviceId ?: 'fb_' . md5($platform . $browser . $language);
-        $isFallback = empty($rawDeviceId);
-
+        $isFallback = str_starts_with($deviceId, 'fb_');
         $userId = ($user && isset($user->id) && is_numeric($user->id)) ? $user->id : null;
 
+        $context = $this->analyzeDeviceContext($agent, $userAgent);
+
         if (!$userId) {
-            return $this->buildTempDevice($deviceId, $userAgent, $appVersion, $ip, $isFallback, $language, $agent);
+            return $this->buildTempDevice($deviceId, $userAgent, $appVersion, $ip, $isFallback, $language, $context);
         }
 
         $device = UserDevice::firstOrNew([
@@ -31,16 +30,17 @@ class DeviceIdentificationService
             'device_id' => $deviceId,
         ]);
 
-        if ($device->exists && $device->trust_level === 'BLOCKED') {
+        if ($device->exists && $device->trust_level === self::TRUST_BLOCKED) {
             return $device;
         }
 
         $needsDbUpdate = false;
         $ipChanged = $device->last_ip_address !== $ip;
 
-        // 🚨 FIX 2: Existing Device Update me bhi Device Name update karein
-        $this->updateDeviceCharacteristics($device, $userAgent, $deviceId, $isFallback, $agent);
-        $needsDbUpdate = true;
+        if (!$device->exists || $device->user_agent !== $userAgent) {
+            $this->updateDeviceCharacteristics($device, $userAgent, $deviceId, $isFallback, $context, $language);
+            $needsDbUpdate = true;
+        }
 
         if ($device->app_version !== $appVersion) {
             $device->app_version = $appVersion;
@@ -52,17 +52,18 @@ class DeviceIdentificationService
             $needsDbUpdate = true;
         }
 
-        // 🚨 FIX 3: Progressive Trust Upgrade (Verified -> Trusted after 3 logins)
-        if ($device->exists && $device->trust_level === 'VERIFIED' && $device->login_count >= 3) {
-            $device->trust_level = 'TRUSTED';
-            $needsDbUpdate = true;
+        if ($device->exists && $device->trust_level === self::TRUST_VERIFIED && $device->login_count >= 3) {
+            $daysOld = Carbon::parse($device->created_at)->diffInDays(now());
+            if ($daysOld >= 7) {
+                $device->trust_level = self::TRUST_TRUSTED;
+                $device->trusted_at = now(); 
+                $needsDbUpdate = true;
+            }
         }
 
-        $shouldDispatchJob = false;
         if ($ipChanged || !$device->exists) {
             $device->last_ip_address = $ip;
             $needsDbUpdate = true;
-            $shouldDispatchJob = true;
         }
 
         if (!$device->last_active_at || $device->last_active_at->diffInMinutes(now()) >= 5) {
@@ -74,20 +75,19 @@ class DeviceIdentificationService
             $device->save();
         }
 
-        if ($shouldDispatchJob && $device->id) {
+        if ($ipChanged && $device->id) {
             ProcessDeviceLocationJob::dispatch($device->id, $ip);
         }
 
         return $device;
     }
 
-    private function updateDeviceCharacteristics($device, $userAgent, $deviceId, $isFallback, Agent $agent)
+    private function analyzeDeviceContext(Agent $agent, ?string $userAgent): array
     {
         $browser = $agent->browser() ?: 'Unknown';
         $platform = $agent->platform() ?: 'Unknown';
         $deviceName = $agent->device() ?: 'Unknown Device';
 
-        // 🚨 FIX 4: Bot vs Emulator Differentiation
         $isBot = $this->isBot($userAgent);
         $isEmulator = $this->isEmulator($userAgent) || $agent->isRobot();
 
@@ -98,53 +98,62 @@ class DeviceIdentificationService
         elseif ($agent->isTablet()) $deviceType = 'TABLET';
         elseif ($agent->isDesktop()) $deviceType = 'DESKTOP';
 
-        // 🚨 FIX 5: Stable Fingerprint (No App Version, No Raw UserAgent)
-        $fingerprintHash = hash('sha256', $deviceId . '|' . $browser . '|' . $platform);
+        return [
+            'browser' => $browser,
+            'platform' => $platform,
+            'device_name' => $deviceName,
+            'is_bot' => $isBot,
+            'is_emulator' => $isEmulator,
+            'device_type' => $deviceType,
+        ];
+    }
+
+    private function updateDeviceCharacteristics(UserDevice $device, ?string $userAgent, string $deviceId, bool $isFallback, array $context, ?string $language): void
+    {
+        $fingerprintHash = hash('sha256', implode('|', [
+            $deviceId, 
+            $context['browser'], 
+            $context['platform'], 
+            $language, 
+            $context['device_type']
+        ]));
 
         if (!$device->exists) {
             $device->fingerprint_hash = $fingerprintHash;
-            $device->device_name = $deviceName;
-            $device->browser = $browser;
-            $device->platform = $platform;
-            $device->device_type = $deviceType;
-            $device->is_emulator = ($isEmulator || $isBot);
-            $device->trust_level = ($isFallback || $isBot || $isEmulator) ? 'SUSPICIOUS' : 'NEW';
+            $device->device_name = $context['device_name'];
+            $device->browser = $context['browser'];
+            $device->platform = $context['platform'];
+            $device->device_type = $context['device_type'];
+            $device->is_emulator = ($context['is_emulator'] || $context['is_bot']);
+            $device->trust_level = ($isFallback || $context['is_bot'] || $context['is_emulator']) ? self::TRUST_SUSPICIOUS : self::TRUST_NEW;
         } else {
-            // Check for drastic changes
             $riskScore = 0;
-            // Sirf Browser/Platform Family compare hogi
-            if ($device->platform !== $platform) $riskScore += 40;
-            if ($device->browser !== $browser) $riskScore += 20;
+            if ($device->platform !== $context['platform']) $riskScore += 40;
+            if ($device->browser !== $context['browser']) $riskScore += 20;
 
             $device->fingerprint_hash = $fingerprintHash;
-            $device->device_name = $deviceName; // Fix: Update device name
-            $device->browser = $browser;
-            $device->platform = $platform;
-            $device->device_type = $deviceType;
+            $device->device_name = $context['device_name'];
+            $device->browser = $context['browser'];
+            $device->platform = $context['platform'];
+            $device->device_type = $context['device_type'];
 
-            if ($riskScore >= 40 && !in_array($device->trust_level, ['BLOCKED', 'SUSPICIOUS'])) {
-                $device->trust_level = 'SUSPICIOUS';
+            if ($riskScore >= 40 && !in_array($device->trust_level, [self::TRUST_BLOCKED, self::TRUST_SUSPICIOUS])) {
+                $device->trust_level = self::TRUST_SUSPICIOUS;
             }
         }
+        
         $device->user_agent = $userAgent;
     }
 
-    private function buildTempDevice($deviceId, $userAgent, $appVersion, $ip, $isFallback, $language, Agent $agent)
+    private function buildTempDevice(string $deviceId, ?string $userAgent, string $appVersion, string $ip, bool $isFallback, ?string $language, array $context): UserDevice
     {
-        $browser = $agent->browser() ?: 'Unknown';
-        $platform = $agent->platform() ?: 'Unknown';
-
-        $isBot = $this->isBot($userAgent);
-        $isEmulator = $this->isEmulator($userAgent) || $agent->isRobot();
-
-        $deviceType = 'UNKNOWN';
-        if ($isBot) $deviceType = 'BOT';
-        elseif ($isEmulator) $deviceType = 'EMULATOR';
-        elseif ($agent->isMobile()) $deviceType = 'MOBILE';
-        elseif ($agent->isTablet()) $deviceType = 'TABLET';
-        elseif ($agent->isDesktop()) $deviceType = 'DESKTOP';
-
-        $fingerprintHash = hash('sha256', $deviceId . '|' . $browser . '|' . $platform);
+        $fingerprintHash = hash('sha256', implode('|', [
+            $deviceId, 
+            $context['browser'], 
+            $context['platform'], 
+            $language, 
+            $context['device_type']
+        ]));
 
         $device = new UserDevice();
         $device->device_id = $deviceId;
@@ -152,21 +161,22 @@ class DeviceIdentificationService
         $device->last_ip_address = $ip;
         $device->app_version = $appVersion;
         $device->language = $language;
-        $device->platform = $platform;
-        $device->browser = $browser;
-        $device->device_name = $agent->device() ?: 'Unknown Device';
-        $device->device_type = $deviceType;
-        $device->is_emulator = ($isBot || $isEmulator);
+        $device->platform = $context['platform'];
+        $device->browser = $context['browser'];
+        $device->device_name = $context['device_name'];
+        $device->device_type = $context['device_type'];
+        $device->is_emulator = ($context['is_bot'] || $context['is_emulator']);
         $device->fingerprint_hash = $fingerprintHash;
         
-        $device->trusted_at = null; // Explicitly null
-        $device->trust_level = ($isFallback || $isBot || $isEmulator) ? 'SUSPICIOUS' : 'NEW';
+        $device->trusted_at = null;
+        $device->trust_level = ($isFallback || $context['is_bot'] || $context['is_emulator']) ? self::TRUST_SUSPICIOUS : self::TRUST_NEW;
 
         return $device;
     }
 
-    private function isBot(string $userAgent): bool
+    private function isBot(?string $userAgent): bool
     {
+        if (!$userAgent) return false;
         $botPatterns = ['PostmanRuntime', 'curl', 'python-requests', 'GuzzleHttp', 'HeadlessChrome', 'Puppeteer', 'PhantomJS'];
         foreach ($botPatterns as $pattern) {
             if (preg_match('/' . $pattern . '/i', $userAgent)) return true;
@@ -174,8 +184,9 @@ class DeviceIdentificationService
         return false;
     }
 
-    private function isEmulator(string $userAgent): bool
+    private function isEmulator(?string $userAgent): bool
     {
+        if (!$userAgent) return false;
         $emulatorPatterns = ['Android.*Build', 'Genymotion', 'Nox', 'BlueStacks', 'LDPlayer'];
         foreach ($emulatorPatterns as $pattern) {
             if (preg_match('/' . $pattern . '/i', $userAgent)) return true;

@@ -53,4 +53,8 @@ class UserDevice extends Model
     {
         return $this->hasMany(SecurityAuditLog::class);
     }
+    public function sessions()
+    {
+        return $this->hasMany(DeviceSession::class, 'user_device_id');
+    }
 }

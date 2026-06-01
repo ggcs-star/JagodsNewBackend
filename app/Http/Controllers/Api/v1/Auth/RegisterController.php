@@ -101,4 +101,35 @@ class RegisterController extends Controller
                 'waiter_id' => $loginData['waiter_id_data'] ?? 0,
             ], 200);
     }
+
+    public function resendOtp(Request $request)
+    {
+        $request->validate([
+            'temp_token' => 'required|string',
+        ]);
+
+        $deviceId = $request->header('X-Device-ID');
+        if (empty($deviceId)) {
+            $deviceId = 'fb_' . hash('sha256', $request->userAgent() . $request->header('Accept-Language') . $request->ip());
+        }
+
+        $response = $this->registerService->resendRegistrationOtp(
+            $request->temp_token,
+            $deviceId,
+            $request->ip()
+        );
+
+        if (!$response['status']) {
+            return response()->json([
+                'status' => $response['code'],
+                'message' => $response['message']
+            ], $response['code']);
+        }
+
+        return response()->json([
+            'status' => 200,
+            'message' => $response['message'],
+            'expires_in' => $response['expires_in']
+        ], 200);
+    }
 }

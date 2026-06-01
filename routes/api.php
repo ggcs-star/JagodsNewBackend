@@ -40,6 +40,7 @@ use App\Http\Controllers\Api\v1\WebhookController;
 use App\Http\Controllers\Api\v1\DeviceVerificationController;
 use App\Http\Controllers\Api\v1\Auth\RefreshTokenController;
 use App\Http\Controllers\Api\v1\UniversalOtpController;
+use App\Http\Controllers\Api\v1\Auth\ActiveSessionController;
 /*
 |--------------------------------------------------------------------------
 | API Routes
@@ -58,8 +59,12 @@ Route::group(['prefix' => 'v1'], function () {
     // Route::post('reg', [RegisterController::class, 'action']);
     Route::post('reg', [RegisterController::class, 'sendRegisterOtp']);
     Route::post('register/verify-otp', [RegisterController::class, 'verifyRegisterOtp']);
+    Route::post('register/resend-otp', [RegisterController::class, 'resendOtp']);
     Route::post('social-login', [SocialLoginController::class, 'action'])->middleware('throttle:login_attempts');
     Route::post('logout', [LogoutController::class, 'action']);
+   
+    Route::get('sessions', [ActiveSessionController::class, 'index']);
+
     Route::post('forgot-password', [ForgotPasswordController::class, 'sendResetLinkEmail'])->middleware('throttle:otp_send');
 
     Route::post('/otp/send', [UniversalOtpController::class, 'send'])->middleware('throttle:otp_send');
