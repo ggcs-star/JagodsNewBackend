@@ -26,9 +26,9 @@ use Spatie\MediaLibrary\MediaCollections\Models\Media;
 class Restaurant extends BaseModel implements HasMedia
 {
     use WatchableTrait, InteractsWithMedia, HasSlug, SoftDeletes;
-    protected $table       = 'restaurants';
-    protected $guarded     = ['id'];
-    protected $auditColumn     = true;
+    protected $table = 'restaurants';
+    protected $guarded = ['id'];
+    protected $auditColumn = true;
     protected $dates = ['deleted_at'];
     protected $fakeColumns = [];
 
@@ -43,7 +43,7 @@ class Restaurant extends BaseModel implements HasMedia
         'applied' => 'int',
         'creator_id' => 'int',
         'editor_id ' => 'int',
-         //'coverImg' => '',
+        //'coverImg' => '',
     ];
 
     public function getRouteKeyName()
@@ -113,7 +113,7 @@ class Restaurant extends BaseModel implements HasMedia
 
     public function getavgRatingsAttribute()
     {
-        $rating      = new RatingsService();
+        $rating = new RatingsService();
         $ratingArray = $rating->avgRating($this->id);
         if (!blank($ratingArray)) {
             return $ratingArray;
@@ -137,12 +137,12 @@ class Restaurant extends BaseModel implements HasMedia
 
     public function OnModelCreated()
     {
-        $qrCode                = new QrCode();
+        $qrCode = new QrCode();
         $qrCode->restaurant_id = $this->id;
-        $qrCode->creator_type  = $this->creator_type;
-        $qrCode->creator_id    = $this->creator_id;
-        $qrCode->editor_type   = $this->editor_type;
-        $qrCode->editor_id     = $this->editor_id;
+        $qrCode->creator_type = $this->creator_type;
+        $qrCode->creator_id = $this->creator_id;
+        $qrCode->editor_type = $this->editor_type;
+        $qrCode->editor_id = $this->editor_id;
         $qrCode->save();
     }
 
@@ -221,23 +221,22 @@ class Restaurant extends BaseModel implements HasMedia
             return '<span class="db-table-badge text-red-600 bg-red-100">' . trans('statuses.' . Status::INACTIVE) . '</span>';
         }
     }
-    
-    
+
+
     public function getIsOpenAttribute()
-{
-    $current_time = now()->format('H:i');
+    {
+        $now = now()->format('H:i:s');
 
-    if ($this->opening_time > $this->closing_time) {
-        return $this->opening_time < $current_time;
+        if ($this->opening_time > $this->closing_time) {
+            return $now >= $this->opening_time || $now <= $this->closing_time;
+        }
+
+        return $now >= $this->opening_time && $now <= $this->closing_time;
     }
-
-    return $this->opening_time < $current_time && $this->closing_time > $current_time;
-}
-
-public function banners()
-{
-    return $this->hasMany(RestaurantBanner::class)
-        ->where('status', 1)
-        ->orderByRaw('sort_order = 0, sort_order ASC');
-}
+    public function banners()
+    {
+        return $this->hasMany(RestaurantBanner::class)
+            ->where('status', 1)
+            ->orderByRaw('sort_order = 0, sort_order ASC');
+    }
 }

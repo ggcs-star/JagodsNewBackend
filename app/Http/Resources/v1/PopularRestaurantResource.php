@@ -34,6 +34,7 @@ class PopularRestaurantResource extends JsonResource
             'is_open' => (bool) $this->is_open,
             "opening_time"    => $this->opening_time,
             "closing_time"    => $this->closing_time,
+            'orders_count' => $this->total_orders ?? 0,
             // 'is_open' => false,
         ];
     }

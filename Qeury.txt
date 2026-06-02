@@ -345,3 +345,20 @@ COLLATE=utf8mb4_unicode_ci;
 ALTER TABLE device_sessions
 ADD COLUMN revoked_at TIMESTAMP NULL
 AFTER expires_at;
+
+ALTER TABLE restaurants
+ADD COLUMN total_orders BIGINT UNSIGNED NOT NULL DEFAULT 0
+AFTER sort_order;
+
+
+ALTER TABLE orders
+ADD COLUMN user_device_id BIGINT UNSIGNED NULL AFTER user_id;
+
+ALTER TABLE orders
+MODIFY COLUMN user_device_id CHAR(36) NULL;
+
+ALTER TABLE orders
+ADD CONSTRAINT fk_orders_user_device_id
+FOREIGN KEY (user_device_id)
+REFERENCES user_devices(id)
+ON DELETE SET NULL;

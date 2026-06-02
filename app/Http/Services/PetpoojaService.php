@@ -16,7 +16,10 @@ class PetpoojaService
             $response = Http::withHeaders([
                 'X-API-KEY' => env('PETPOOJA_API_KEY', 'xyz1'),
                 'Accept' => 'application/json',
-            ])->get('http://petpooja.jagods.com/public/api/petpooja/order-payload?order_id=' . $orderId);
+            ])
+                ->timeout(5) 
+                ->retry(2, 100) 
+                ->get('http://petpooja.jagods.com/public/api/petpooja/order-payload?order_id=' . $orderId);
 
             Log::info('Petpooja API response', [
                 'order_id' => $orderId,
