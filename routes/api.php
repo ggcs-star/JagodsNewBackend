@@ -139,9 +139,9 @@ Route::group(['prefix' => 'v1'], function () {
 
     Route::get('popular-restaurant', [PopularRestaurantController::class, 'index']);
     Route::get('/restaurant/index/{id?}/{status?}/{applied?}', [RestaurantController::class, 'index']);
-    Route::get('restaurant/{id}', [RestaurantController::class, 'show']);
-    Route::get('/search', [SearchController::class, 'index']);
-
+    Route::get('restaurant/{id}', [RestaurantController::class, 'show']); 
+    // Route::get('/search', [SearchController::class, 'index']);
+    Route::get('/search', [SearchController::class, 'globalSearch']);
     Route::get('restaurant-menuItem/menuItem', [MenuItemController::class, 'index']);
     Route::get('restaurant-menuItem/menuItem/{id}', [MenuItemController::class, 'index']);
     Route::get('restaurant-menuItem/menuItem/{id}/show', [MenuItemController::class, 'show']);

@@ -22,10 +22,10 @@ use Shipu\Watchable\Traits\WatchableTrait;
 use Spatie\MediaLibrary\InteractsWithMedia;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
-
+use Laravel\Scout\Searchable;
 class Restaurant extends BaseModel implements HasMedia
 {
-    use WatchableTrait, InteractsWithMedia, HasSlug, SoftDeletes;
+    use WatchableTrait, InteractsWithMedia, HasSlug, SoftDeletes ,Searchable;
     protected $table = 'restaurants';
     protected $guarded = ['id'];
     protected $auditColumn = true;
@@ -238,5 +238,39 @@ class Restaurant extends BaseModel implements HasMedia
         return $this->hasMany(RestaurantBanner::class)
             ->where('status', 1)
             ->orderByRaw('sort_order = 0, sort_order ASC');
+    }
+
+  public function toSearchableArray()
+    {
+        $array = [
+            'id'             => $this->id,
+            'name'           => $this->name,
+            'slug'           => $this->slug,
+            'description'    => strip_tags($this->description ?? ''),
+            'address'        => $this->address,
+            'status'         => (int) $this->status,
+            'current_status' => (int) $this->current_status,
+            'restroType'     => $this->restroType,
+            'total_orders'   => (int) $this->total_orders,
+            'is_open'        => (bool) $this->is_open,
+            '_geo' => [
+                'lat' => (float) $this->lat,
+                'lng' => (float) $this->long,
+            ],
+        ];
+
+        if ($this->relationLoaded('menuItems') || $this->exists) {
+            $array['menu_item_names'] = $this->menuItems->pluck('name')->implode(', ');
+        } else {
+            $array['menu_item_names'] = '';
+        }
+
+        return $array;
+    }
+
+   
+    public function shouldBeSearchable()
+    {
+        return $this->status == Status::ACTIVE && $this->current_status == CurrentStatus::YES;
     }
 }

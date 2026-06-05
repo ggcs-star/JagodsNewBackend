@@ -12,14 +12,14 @@ use Spatie\Sluggable\SlugOptions;
 use Shipu\Watchable\Traits\WatchableTrait;
 use Spatie\MediaLibrary\InteractsWithMedia;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
-
+use Laravel\Scout\Searchable;
 class MenuItem extends BaseModel implements HasMedia
 {
-    use HasSlug, WatchableTrait, InteractsWithMedia;
-
-    protected $table       = 'menu_items';
-    protected $auditColumn       = true;
-    protected $guarded     = ['id'];
+    use HasSlug, WatchableTrait, InteractsWithMedia, Searchable;
+    protected $touches = ['restaurant'];
+    protected $table = 'menu_items';
+    protected $auditColumn = true;
+    protected $guarded = ['id'];
     protected $casts = [
         'status' => 'int',
         'counter' => 'int',
@@ -102,7 +102,7 @@ class MenuItem extends BaseModel implements HasMedia
 
     public function getImagesAttribute()
     {
-        $retArray  = [];
+        $retArray = [];
         $menuItems = $this->getMedia('menu-items');
         if (!blank($menuItems)) {
             foreach ($menuItems as $key => $menuItem) {
@@ -155,7 +155,7 @@ class MenuItem extends BaseModel implements HasMedia
 
     public function scopeOwner($query)
     {
-        if(auth()->user()->restaurant){
+        if (auth()->user()->restaurant) {
             $query->where('restaurant_id', auth()->user()->restaurant->id);
         }
     }
@@ -192,5 +192,25 @@ class MenuItem extends BaseModel implements HasMedia
             return '<span class="db-table-badge text-red-600 bg-red-100">' . trans('statuses.' . MenuItemStatus::INACTIVE) . '</span>';
         }
     }
+    public function toSearchableArray()
+    {
+        return [
+            'id' => $this->id,
+            'restaurant_id' => (int) $this->restaurant_id,
+            'name' => $this->name,
+            'slug' => $this->slug,
+            'description' => strip_tags($this->description ?? ''),
+            'unit_price' => (float) $this->unit_price,
+            'discount_price' => (float) $this->discount_price,
+            'tags' => $this->tags,
+            'restroType' => $this->restroType,
+            'status' => (int) $this->status,
+        ];
+    }
 
+
+    public function shouldBeSearchable()
+    {
+        return $this->status == MenuItemStatus::ACTIVE;
+    }
 }
