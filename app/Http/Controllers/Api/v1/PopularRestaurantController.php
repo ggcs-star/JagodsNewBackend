@@ -96,61 +96,66 @@ class PopularRestaurantController extends BackendController
 
 
     public function index(Request $request)
-    {
-        try {
-            $filterType = $request->get('restaurants') === 'all' ? 'all' : 'popular';
+{
+    try {
+        $filterType = $request->get('restaurants') === 'all' ? 'all' : 'popular';
+        $cacheKey = "home_restaurants_{$filterType}";
+        
+        $ttl = now()->addMinutes(5);
 
-            $cacheKey = "home_restaurants_{$filterType}";
-            $ttl = now()->addMinutes(rand(4, 6));
+        $cachedData = \Illuminate\Support\Facades\Cache::remember($cacheKey, $ttl, function () use ($filterType) {
 
-            $bestSellingRestaurants = \Illuminate\Support\Facades\Cache::remember($cacheKey, $ttl, function () use ($filterType) {
+            $query = Restaurant::select([
+                'id',
+                'name',
+                'slug',
+                'coverImg',
+                'opening_time',
+                'closing_time',
+                'restroType',
+                'sort_order',
+                'total_orders',
+                'description',
+                'address',
+                'avg_rating',      
+                'total_reviews',
+            ])
+                ->where('status', \App\Enums\RestaurantStatus::ACTIVE)
+                ->where('current_status', \App\Enums\CurrentStatus::YES)
+                ->where('id', '!=', 28);
 
-                $query = Restaurant::select([
-                    'id',
-                    'name',
-                    'slug',
-                    'coverImg',
-                    'opening_time',
-                    'closing_time',
-                    'restroType',
-                    'sort_order',
-                    'total_orders',
-                    'description',
-                    'address',
-                ])
-                    ->where('status', RestaurantStatus::ACTIVE)
-                    ->where('current_status', CurrentStatus::YES)
-                    ->where('id', '!=', 28);
-                if ($filterType === 'all') {
-                    $query->orderByRaw("
+            if ($filterType === 'all') {
+                $query->orderByRaw("
                     CASE 
                         WHEN sort_order = 0 THEN 999 
                         ELSE sort_order 
                     END ASC
                 ")->orderByDesc('total_orders');
-                } else {
-                    $query->orderByDesc('total_orders');
-                }
+            } else {
+                $query->orderByDesc('total_orders');
+            }
 
-                return $query->get();
-            });
+            $bestSellingRestaurants = $query->get();
 
-            return $this->successResponse([
-                'status' => 200,
-                'message' => 'Restaurants fetched successfully.',
-                'data' => PopularRestaurantResource::collection($bestSellingRestaurants)
-            ]);
+            return \App\Http\Resources\v1\PopularRestaurantResource::collection($bestSellingRestaurants)->resolve();
+        });
 
-        } catch (\Exception $e) {
-            \Illuminate\Support\Facades\Log::error('Home Page Restaurant API Error: ' . $e->getMessage(), [
-                'trace' => $e->getTraceAsString()
-            ]);
+        return response()->json([
+            'status' => 200,
+            'message' => 'Restaurants fetched successfully.',
+            'data' => $cachedData
+        ]);
 
-            return response()->json([
-                'status' => 500,
-                'message' => 'Something went wrong while fetching restaurants.',
-                'error' => config('app.env') !== 'production' ? $e->getMessage() : null
-            ], 500);
-        }
+    } catch (\Exception $e) {
+        \Illuminate\Support\Facades\Log::error('Home Page Restaurant API Error: ' . $e->getMessage(), [
+            'trace' => $e->getTraceAsString()
+        ]);
+
+        return response()->json([
+            'status' => 500,
+            'message' => 'Something went wrong while fetching restaurants.',
+            'error' => config('app.env') !== 'production' ? $e->getMessage() : null
+        ], 500);
     }
+}
 }

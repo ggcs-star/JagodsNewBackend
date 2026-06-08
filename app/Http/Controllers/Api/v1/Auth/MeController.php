@@ -251,7 +251,13 @@ class MeController extends Controller
 
     public function saveReview(Request $request)
     {
+        // 🚨 NAYI LINE: Validation check hone se pehle logged-in user ki ID request me daal do
+        $request->merge([
+            'user_id' => auth()->id()
+        ]);
+
         $validator = Validator::make($request->all(), $this->reviewValidateArray());
+        
         if ($validator->fails()) {
             return response()->json([
                 'status' => 422,
@@ -259,26 +265,25 @@ class MeController extends Controller
             ], 422);
         }
 
-        $restaurantRating = RestaurantRating::where(['user_id' => auth()->id(), 'restaurant_id' => $request->restaurant_id])->first();
-
-        if ($restaurantRating) {
-            $restaurantRating->rating = $request->rating;
-            $restaurantRating->review = $request->review;
-            $restaurantRating->status = RatingStatus::ACTIVE;
-            $restaurantRating->save();
-        } else {
-            $restaurantRating = new RestaurantRating;
-            $restaurantRating->user_id = auth()->id();
-            $restaurantRating->restaurant_id = $request->restaurant_id;
-            $restaurantRating->rating = $request->rating;
-            $restaurantRating->review = $request->review;
-            $restaurantRating->status = RatingStatus::ACTIVE;
-            $restaurantRating->save();
-        }
+        // 💡 OPTIMIZATION: updateOrCreate check karega ki pehle se record hai ya nahi.
+        // Agar hai, toh update karega. Agar nahi hai, toh naya create kar dega.
+        RestaurantRating::updateOrCreate(
+            [
+                // Yeh conditions search karegi
+                'user_id' => auth()->id(), 
+                'restaurant_id' => $request->restaurant_id
+            ],
+            [
+                // Agar mila ya naya banana hua, toh in values ko save karegi
+                'rating' => $request->rating,
+                'review' => $request->review,
+                'status' => RatingStatus::ACTIVE,
+            ]
+        );
 
         return response()->json([
             'status' => 200,
-            'message' => 'You rating successfully saved.',
+            'message' => 'Your rating successfully saved.',
         ], 200);
     }
 

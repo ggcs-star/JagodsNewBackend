@@ -25,7 +25,7 @@ use Spatie\MediaLibrary\MediaCollections\Models\Media;
 use Laravel\Scout\Searchable;
 class Restaurant extends BaseModel implements HasMedia
 {
-    use WatchableTrait, InteractsWithMedia, HasSlug, SoftDeletes ,Searchable;
+    use WatchableTrait, InteractsWithMedia, HasSlug, SoftDeletes, Searchable;
     protected $table = 'restaurants';
     protected $guarded = ['id'];
     protected $auditColumn = true;
@@ -240,19 +240,26 @@ class Restaurant extends BaseModel implements HasMedia
             ->orderByRaw('sort_order = 0, sort_order ASC');
     }
 
-  public function toSearchableArray()
+    protected function makeAllSearchableUsing($query)
+    {
+        return $query->with('menuItems');
+    }
+
+    public function toSearchableArray()
     {
         $array = [
-            'id'             => $this->id,
-            'name'           => $this->name,
-            'slug'           => $this->slug,
-            'description'    => strip_tags($this->description ?? ''),
-            'address'        => $this->address,
-            'status'         => (int) $this->status,
+            'id' => $this->id,
+            'name' => $this->name,
+            'slug' => $this->slug,
+            'description' => strip_tags($this->description ?? ''),
+            'address' => $this->address,
+            'status' => (int) $this->status,
             'current_status' => (int) $this->current_status,
-            'restroType'     => $this->restroType,
-            'total_orders'   => (int) $this->total_orders,
-            'is_open'        => (bool) $this->is_open,
+            'restroType' => $this->restroType,
+            'total_orders' => (int) $this->total_orders,
+            'is_open' => (bool) $this->is_open,
+            'avg_rating' => (float) $this->avg_rating,
+            'total_reviews' => (int) $this->total_reviews,
             '_geo' => [
                 'lat' => (float) $this->lat,
                 'lng' => (float) $this->long,
@@ -260,7 +267,10 @@ class Restaurant extends BaseModel implements HasMedia
         ];
 
         if ($this->relationLoaded('menuItems') || $this->exists) {
-            $array['menu_item_names'] = $this->menuItems->pluck('name')->implode(', ');
+            $array['menu_item_names'] = $this->menuItems
+                ->where('status', \App\Enums\MenuItemStatus::ACTIVE)
+                ->pluck('name')
+                ->implode(', ');
         } else {
             $array['menu_item_names'] = '';
         }
@@ -268,7 +278,7 @@ class Restaurant extends BaseModel implements HasMedia
         return $array;
     }
 
-   
+
     public function shouldBeSearchable()
     {
         return $this->status == Status::ACTIVE && $this->current_status == CurrentStatus::YES;
