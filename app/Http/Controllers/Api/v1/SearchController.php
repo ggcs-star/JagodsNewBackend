@@ -20,7 +20,7 @@ use App\Http\Resources\v1\RatingResource;
 use App\Http\Controllers\BackendController;
 use App\Http\Resources\v1\MenuItemResource;
 use App\Http\Resources\v1\RestaurantResource;
-
+use App\Models\MenuItem;
 
 class SearchController extends BackendController
 {
@@ -31,7 +31,7 @@ class SearchController extends BackendController
     {
         parent::__construct();
         $this->data['siteTitle'] = 'Restaurants';
-        $this->middleware('auth:api');
+        // $this->middleware('auth:api');
         $this->restaurantService = $restaurantService;
     }
     /**
@@ -211,5 +211,47 @@ if (!blank($name)) {
 }
 
     return $restaurants->latest()->get(); 
+}
+
+
+public function globalSearch(Request $request)
+{
+    try {
+        $query = $request->input('query', ''); 
+        $lat = $request->input('lat'); 
+        $lng = $request->input('lng');
+        $radius = 10000; 
+        
+        $restaurantSearch = Restaurant::search($query);
+
+        if ($lat && $lng) {
+            $restaurantSearch->options([
+                'filter' => "_geoRadius({$lat}, {$lng}, {$radius})",
+                'sort' => ["_geoPoint({$lat}, {$lng}):asc", "total_orders:desc"]
+            ]);
+        } else {
+            $restaurantSearch->orderBy('total_orders', 'desc');
+        }
+
+        $restaurantSearch->query(function ($query) {
+            $query->with(['media']); 
+        });
+
+        $restaurants = $restaurantSearch->take(15)->get();
+
+        return response()->json([
+            'status' => 200,
+            'message' => 'Search completed successfully.',
+            'data' => PopularRestaurantResource::collection($restaurants)
+        ], 200);
+
+    } catch (\Exception $e) {
+        \Illuminate\Support\Facades\Log::error('Meilisearch Global Search Error: ' . $e->getMessage());
+        return response()->json([
+            'status' => 500,
+            'message' => 'Failed to execute search. Please try again later.',
+            'error' => config('app.env') !== 'production' ? $e->getMessage() : null
+        ], 500);
+    }
 }
 }

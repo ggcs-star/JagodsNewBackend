@@ -22,13 +22,13 @@ use Shipu\Watchable\Traits\WatchableTrait;
 use Spatie\MediaLibrary\InteractsWithMedia;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
-
+use Laravel\Scout\Searchable;
 class Restaurant extends BaseModel implements HasMedia
 {
-    use WatchableTrait, InteractsWithMedia, HasSlug, SoftDeletes;
-    protected $table       = 'restaurants';
-    protected $guarded     = ['id'];
-    protected $auditColumn     = true;
+    use WatchableTrait, InteractsWithMedia, HasSlug, SoftDeletes, Searchable;
+    protected $table = 'restaurants';
+    protected $guarded = ['id'];
+    protected $auditColumn = true;
     protected $dates = ['deleted_at'];
     protected $fakeColumns = [];
 
@@ -43,7 +43,7 @@ class Restaurant extends BaseModel implements HasMedia
         'applied' => 'int',
         'creator_id' => 'int',
         'editor_id ' => 'int',
-         //'coverImg' => '',
+        //'coverImg' => '',
     ];
 
     public function getRouteKeyName()
@@ -113,7 +113,7 @@ class Restaurant extends BaseModel implements HasMedia
 
     public function getavgRatingsAttribute()
     {
-        $rating      = new RatingsService();
+        $rating = new RatingsService();
         $ratingArray = $rating->avgRating($this->id);
         if (!blank($ratingArray)) {
             return $ratingArray;
@@ -137,12 +137,12 @@ class Restaurant extends BaseModel implements HasMedia
 
     public function OnModelCreated()
     {
-        $qrCode                = new QrCode();
+        $qrCode = new QrCode();
         $qrCode->restaurant_id = $this->id;
-        $qrCode->creator_type  = $this->creator_type;
-        $qrCode->creator_id    = $this->creator_id;
-        $qrCode->editor_type   = $this->editor_type;
-        $qrCode->editor_id     = $this->editor_id;
+        $qrCode->creator_type = $this->creator_type;
+        $qrCode->creator_id = $this->creator_id;
+        $qrCode->editor_type = $this->editor_type;
+        $qrCode->editor_id = $this->editor_id;
         $qrCode->save();
     }
 
@@ -221,23 +221,66 @@ class Restaurant extends BaseModel implements HasMedia
             return '<span class="db-table-badge text-red-600 bg-red-100">' . trans('statuses.' . Status::INACTIVE) . '</span>';
         }
     }
-    
-    
-    public function getIsOpenAttribute()
-{
-    $current_time = now()->format('H:i');
 
-    if ($this->opening_time > $this->closing_time) {
-        return $this->opening_time < $current_time;
+
+    public function getIsOpenAttribute()
+    {
+        $now = now()->format('H:i:s');
+
+        if ($this->opening_time > $this->closing_time) {
+            return $now >= $this->opening_time || $now <= $this->closing_time;
+        }
+
+        return $now >= $this->opening_time && $now <= $this->closing_time;
+    }
+    public function banners()
+    {
+        return $this->hasMany(RestaurantBanner::class)
+            ->where('status', 1)
+            ->orderByRaw('sort_order = 0, sort_order ASC');
     }
 
-    return $this->opening_time < $current_time && $this->closing_time > $current_time;
-}
+    protected function makeAllSearchableUsing($query)
+    {
+        return $query->with('menuItems');
+    }
 
-public function banners()
-{
-    return $this->hasMany(RestaurantBanner::class)
-        ->where('status', 1)
-        ->orderByRaw('sort_order = 0, sort_order ASC');
-}
+    public function toSearchableArray()
+    {
+        $array = [
+            'id' => $this->id,
+            'name' => $this->name,
+            'slug' => $this->slug,
+            'description' => strip_tags($this->description ?? ''),
+            'address' => $this->address,
+            'status' => (int) $this->status,
+            'current_status' => (int) $this->current_status,
+            'restroType' => $this->restroType,
+            'total_orders' => (int) $this->total_orders,
+            'is_open' => (bool) $this->is_open,
+            'avg_rating' => (float) $this->avg_rating,
+            'total_reviews' => (int) $this->total_reviews,
+            '_geo' => [
+                'lat' => (float) $this->lat,
+                'lng' => (float) $this->long,
+            ],
+        ];
+
+        if ($this->relationLoaded('menuItems') || $this->exists) {
+            $array['menu_item_names'] = $this->menuItems
+                ->where('status', \App\Enums\MenuItemStatus::ACTIVE)
+                ->pluck('name')
+                ->implode(', ');
+        } else {
+            $array['menu_item_names'] = '';
+        }
+
+        return $array;
+    }
+
+
+    public function shouldBeSearchable()
+    {
+        return $this->status == Status::ACTIVE && $this->current_status == CurrentStatus::YES;
+    }
 }

@@ -50,8 +50,8 @@ class CheckoutController extends BackendController
             if (!$cart) {
                 return $this->errorResponse('Cart not found', 404);
             }
-
-            $order = $this->checkoutService->checkout($cart, (int) $request->payment_method);
+            $currentDevice = $request->attributes->get('current_device');
+            $order = $this->checkoutService->checkout($cart, (int) $request->payment_method, $currentDevice);
 
             if ((int) $request->payment_method === PaymentMethod::CASH_ON_DELIVERY) {
 

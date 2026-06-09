@@ -50,7 +50,8 @@ class Order extends Model implements HasMedia
         'large_order_fee',
         'surge_fee',
         'tip_amount',
-        'order_instructions'
+        'order_instructions',
+        'user_device_id'
 
     ];
     protected $casts = [
@@ -235,4 +236,9 @@ class Order extends Model implements HasMedia
             return '<span class="db-table-badge text-black bg-gray-200">' . trans('orders_type.' . $this->order_type) . '</span>';
         }
     }
+
+    public function device()
+{
+    return $this->belongsTo(UserDevice::class, 'user_device_id');
+}
 }

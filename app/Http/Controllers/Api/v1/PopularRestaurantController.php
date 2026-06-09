@@ -96,65 +96,66 @@ class PopularRestaurantController extends BackendController
 
 
     public function index(Request $request)
-    {
-        $current_time = now()->format('H:i');
+{
+    try {
+        $filterType = $request->get('restaurants') === 'all' ? 'all' : 'popular';
+        $cacheKey = "home_restaurants_{$filterType}";
+        
+        $ttl = now()->addMinutes(5);
 
-        $query = Restaurant::select([
-            'id',
-            'name',
-            'slug',
-            'description',
-            'address',
-            'lat',
-            'long',
-            'coverImg',
-            'opening_time',
-            'closing_time',
-            'restroType',
-            'sort_order'
-        ])
-            ->withCount(['orders as orders_count'])
+        $cachedData = \Illuminate\Support\Facades\Cache::remember($cacheKey, $ttl, function () use ($filterType) {
 
-            ->selectRaw("
-            CASE
-                WHEN opening_time > closing_time AND opening_time < ? THEN 1
-                WHEN opening_time < closing_time AND opening_time < ? AND closing_time > ? THEN 1
-                ELSE 0
-            END as is_open
-        ", [$current_time, $current_time, $current_time])
+            $query = Restaurant::select([
+                'id',
+                'name',
+                'slug',
+                'coverImg',
+                'opening_time',
+                'closing_time',
+                'restroType',
+                'sort_order',
+                'total_orders',
+                'description',
+                'address',
+                'avg_rating',      
+                'total_reviews',
+            ])
+                ->where('status', \App\Enums\RestaurantStatus::ACTIVE)
+                ->where('current_status', \App\Enums\CurrentStatus::YES)
+                ->where('id', '!=', 28);
 
-            ->where('status', RestaurantStatus::ACTIVE)
-            ->where('current_status', CurrentStatus::YES)
-            ->where('id', '!=', 28);
-
-
-        if ($request->get('restaurants') === 'all') {
-            $query->orderByRaw("
-            CASE 
-                WHEN sort_order = 0 THEN 999 
-                ELSE sort_order 
-            END ASC
-        ")->orderBy('orders_count', 'desc');
-        } else {
-            $query->orderBy('orders_count', 'desc');
-        }
-
-        try {
+            if ($filterType === 'all') {
+                $query->orderByRaw("
+                    CASE 
+                        WHEN sort_order = 0 THEN 999 
+                        ELSE sort_order 
+                    END ASC
+                ")->orderByDesc('total_orders');
+            } else {
+                $query->orderByDesc('total_orders');
+            }
 
             $bestSellingRestaurants = $query->get();
 
-            return $this->successResponse([
-                'status' => 200,
-                'data' => PopularRestaurantResource::collection($bestSellingRestaurants)
-            ]);
+            return \App\Http\Resources\v1\PopularRestaurantResource::collection($bestSellingRestaurants)->resolve();
+        });
 
-        } catch (\Exception $e) {
+        return response()->json([
+            'status' => 200,
+            'message' => 'Restaurants fetched successfully.',
+            'data' => $cachedData
+        ]);
 
-            return response()->json([
-                'exception' => get_class($e),
-                'message' => $e->getMessage(),
-                'trace' => config('app.debug') ? $e->getTrace() : [],
-            ], 500);
-        }
+    } catch (\Exception $e) {
+        \Illuminate\Support\Facades\Log::error('Home Page Restaurant API Error: ' . $e->getMessage(), [
+            'trace' => $e->getTraceAsString()
+        ]);
+
+        return response()->json([
+            'status' => 500,
+            'message' => 'Something went wrong while fetching restaurants.',
+            'error' => config('app.env') !== 'production' ? $e->getMessage() : null
+        ], 500);
     }
+}
 }

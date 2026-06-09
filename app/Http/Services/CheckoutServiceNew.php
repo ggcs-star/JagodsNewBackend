@@ -11,6 +11,8 @@ use App\Models\Order;
 use App\Models\OrderLineItem;
 use App\Models\OrderHistory;
 use App\Models\Discount;
+use App\Models\Restaurant; 
+use App\Models\UserDevice; // 🚨 IMPORT ADDED
 use App\Libraries\MyString;
 use App\Jobs\SendPetpoojaOrderJob;
 use App\Jobs\SendOrderNotificationsJob;
@@ -34,16 +36,18 @@ class CheckoutServiceNew
         $this->invoiceService = $invoiceService;
     }
 
-    public function checkout(Cart $cart, int $paymentMethod)
+    // 🚨 1. Updated checkout signature to accept $device
+    public function checkout(Cart $cart, int $paymentMethod, ?UserDevice $device = null)
     {
-        return DB::transaction(function () use ($cart, $paymentMethod) {
+        return DB::transaction(function () use ($cart, $paymentMethod, $device) {
 
             $this->validationService->validate($cart);
 
             $this->cartService->updateCartTotals($cart);
             $cart->refresh();
 
-            $order = $this->createOrder($cart, $paymentMethod);
+            // 🚨 2. Pass $device to createOrder
+            $order = $this->createOrder($cart, $paymentMethod, $device);
 
             $this->createOrderHistory($order);
 
@@ -52,6 +56,8 @@ class CheckoutServiceNew
             $this->createOrderItems($order, $cart);
 
             $this->invoiceService->generate($order);
+
+            Restaurant::where('id', $order->restaurant_id)->increment('total_orders');
 
             if ($paymentMethod === PaymentMethod::CASH_ON_DELIVERY) {
                 // SendPetpoojaOrderJob::dispatch($order->id)->afterCommit();
@@ -65,7 +71,8 @@ class CheckoutServiceNew
         });
     }
 
-    private function createOrder(Cart $cart, int $paymentMethod): Order
+    // 🚨 3. Updated signature and added device handling
+    private function createOrder(Cart $cart, int $paymentMethod, ?UserDevice $device): Order
     {
         $addressJson = "";
         $latitude = 0.0;
@@ -84,6 +91,7 @@ class CheckoutServiceNew
 
         $order = Order::create([
             'user_id' => $cart->user_id,
+            'user_device_id' => $device ? $device->id : null, // 🚨 4. DEVICE ID SAVED HERE
             'restaurant_id' => $cart->restaurant_id,
             'address_id' => $cart->address_id,
             'coupon_id' => $cart->coupon_id,
@@ -117,6 +125,7 @@ class CheckoutServiceNew
         return $order;
     }
 
+    // ... (baki ke functions same rahenge)
     private function createOrderHistory(Order $order): void
     {
         OrderHistory::create([

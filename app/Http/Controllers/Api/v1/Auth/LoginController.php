@@ -2,84 +2,50 @@
 
 namespace App\Http\Controllers\Api\v1\Auth;
 
-use App\Enums\UserRole;
-use App\Enums\UserStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\LoginRequest;
 use App\Http\Resources\v1\PrivateUserResource;
-use App\Http\Resources\v1\RestaurantResource;
-use App\Models\User;
+use App\Http\Services\Auth\AuthLoginService;
 
 class LoginController extends Controller
 {
-    public function __construct()
+    protected $authLoginService;
+
+    public function __construct(AuthLoginService $authLoginService)
     {
         $this->middleware('auth:api', ['except' => ['action']]);
+        $this->authLoginService = $authLoginService;
     }
 
- public function action(LoginRequest $request)
-{
-    $login = trim($request->email);
+    public function action(LoginRequest $request)
+    {
+        $login = trim($request->email);
 
-   
-    if (filter_var($login, FILTER_VALIDATE_EMAIL)) {
-        $credentials = [
-            'email' => $login,
-            'password' => $request->password
-        ];
-    } else {
-        
-        $login = preg_replace('/[^0-9]/', '', $login);
+        if (filter_var($login, FILTER_VALIDATE_EMAIL)) {
+            $credentials = ['email' => $login, 'password' => $request->password];
+        } else {
+            $login = preg_replace('/[^0-9]/', '', $login);
+            $credentials = ['phone' => $login, 'password' => $request->password];
+        }
 
-        $credentials = [
-            'phone' => $login,
-            'password' => $request->password
-        ];
+        $response = $this->authLoginService->login($credentials, $request, $request->role);
+
+        if (!$response['status']) {
+            return response()->json([
+                'status' => $response['code'],
+                'message' => $response['message'],
+                'requires_otp' => $response['requires_otp'] ?? false,
+                'risk' => $response['risk'] ?? null,
+            ], $response['code']);
+        }
+
+        return (new PrivateUserResource($response['user']))
+            ->additional([
+                'token' => $response['token'],
+                'refresh_token' => $response['refresh_token'],
+                'expires_in' => $response['expires_in'],
+                'restaurant' => $response['restaurant_data'],
+                'waiter_id' => $response['waiter_id_data'],
+            ]);
     }
-
-    $token = auth('api')->attempt($credentials);
-
-    if (!$token) {
-        return response()->json([
-            'data'    => [],
-            'message' => 'You try to using invalid username or password',
-            'status'  => 401,
-        ], 401);
-    }
-
-    $user = auth('api')->user();
-    $role = $request->role;
-
-    if ($role == UserRole::WAITER) {
-        $restaurant = !blank($user->waiter->restaurant) ? new RestaurantResource($user->waiter->restaurant) : [];
-        $waiter = $user->waiter->id;
-    } else {
-        $restaurant = !blank($user->restaurant) ? new RestaurantResource($user->restaurant) : [];
-        $waiter = 0;
-    }
-
-    if ($user->status == UserStatus::INACTIVE) {
-        auth('api')->logout();
-        return response()->json([
-            'data'    => [],
-            'message' => 'Your account currently inactive. you can\'t login our system.',
-            'status'  => 401,
-        ], 401);
-    }
-
-    if ($role && ($role != $user->myrole)) {
-        return response()->json([
-            'data'    => [],
-            'message' => "You don't have permission to login",
-            'status'  => 401,
-        ], 401);
-    }
-
-    return (new PrivateUserResource($user))
-        ->additional([
-            'token' => $token,
-            'restaurant'  => $restaurant,
-            'waiter_id'  => $waiter,
-        ]);
-}
 }

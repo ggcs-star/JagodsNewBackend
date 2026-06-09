@@ -15,8 +15,6 @@ class UpdateCartRequest extends FormRequest
     {
         return [
             'address_id' => 'nullable|numeric|exists:addresses,id',
-            'latitude' => 'nullable|numeric',
-            'longitude' => 'nullable|numeric',
             'order_type' => 'nullable|numeric',
             'remove_coupon' => 'nullable|boolean',
             'order_instructions' => 'nullable|string|max:500',

@@ -34,12 +34,21 @@ class CartService
         return null;
     }
 
-    public function addToCart(array $data, $userId)
+   public function addToCart(array $data, $userId)
     {
         $menuItem = MenuItem::find($data['menu_id']);
 
         if (!$menuItem) {
             throw new Exception('Menu item not found', 404);
+        }
+
+        if (isset($data['address_id'])) {
+            $address = Address::find($data['address_id']);
+            if ($address) {
+                $this->checkDeliveryRadius($menuItem->restaurant_id, $address->latitude, $address->longitude, OrderTypeStatus::DELIVERY);
+            }
+        } elseif (isset($data['latitude']) && isset($data['longitude'])) {
+             $this->checkDeliveryRadius($menuItem->restaurant_id, $data['latitude'], $data['longitude'], OrderTypeStatus::DELIVERY);
         }
 
         $cart = $this->firstOrCreateCart(
@@ -60,22 +69,42 @@ class CartService
             $data['options'] ?? []
         );
 
-        $quantity = $data['quantity'] ?? 1;
+
+        $requestedQty = $data['quantity'] ?? 1;
+
+
+        if ($requestedQty > $menuItem->max_cart_quantity) {
+            throw new Exception(
+                "Maximum allowed quantity is {$menuItem->max_cart_quantity}",
+                422
+            );
+        }
 
         $existingItem = CartItem::where('cart_id', $cart->id)
             ->where('menu_item_id', $menuItem->id)
             ->where('variation_id', $priceDetails['variation_id'])
             ->first();
 
-        $newQty = ($existingItem ? $existingItem->quantity : 0) + $quantity;
 
-        if ($newQty > $menuItem->max_cart_quantity) {
-            throw new Exception("Maximum allowed quantity is {$menuItem->max_cart_quantity}", 422);
+        if ($requestedQty == 0) {
+
+            if ($existingItem) {
+                $existingItem->delete();
+            }
+
+            $this->updateCartTotals($cart);
+
+            return $cart->fresh([
+                'items'
+            ]);
         }
 
-        $totalPrice = $priceDetails['price'] * $newQty;
+
+        $totalPrice = $priceDetails['price'] * $requestedQty;
 
         if ($existingItem) {
+
+
             $existingItem->update([
                 'menu_name' => $menuItem->name,
                 'menu_slug' => $menuItem->slug,
@@ -87,11 +116,13 @@ class CartService
                 'total_price' => $totalPrice,
                 'options' => $priceDetails['options'],
                 'instructions' => $data['instructions'] ?? null,
-                'quantity' => $newQty,
+                'quantity' => $requestedQty,
                 'is_available' => true,
                 'is_price_changed' => false,
             ]);
+
         } else {
+
             CartItem::create([
                 'cart_id' => $cart->id,
                 'menu_item_id' => $menuItem->id,
@@ -103,10 +134,10 @@ class CartService
                 'unit_price' => $menuItem->unit_price,
                 'discount_price' => $menuItem->discount_price,
                 'price' => $priceDetails['price'],
-                'total_price' => $priceDetails['price'] * $quantity,
+                'total_price' => $totalPrice,
                 'options' => $priceDetails['options'],
                 'instructions' => $data['instructions'] ?? null,
-                'quantity' => $quantity,
+                'quantity' => $requestedQty,
                 'is_available' => true,
                 'is_price_changed' => false,
             ]);
@@ -115,7 +146,7 @@ class CartService
         $this->updateCartTotals($cart);
 
         return $cart->fresh([
-          
+            'items'
         ]);
     }
 
@@ -124,15 +155,32 @@ class CartService
         $cart = $this->getCartOrFail($userId);
 
         $updateData = [];
+        $latToCheck = null;
+        $lngToCheck = null;
 
-        if (isset($data['address_id']))
+        if (isset($data['address_id'])) {
             $updateData['address_id'] = $data['address_id'];
-        if (isset($data['latitude']))
+            $address = Address::find($data['address_id']);
+            if ($address) {
+                $latToCheck = $address->latitude;
+                $lngToCheck = $address->longitude;
+            }
+        } 
+        else if (isset($data['latitude']) && isset($data['longitude'])) {
             $updateData['latitude'] = $data['latitude'];
-        if (isset($data['longitude']))
             $updateData['longitude'] = $data['longitude'];
-        if (isset($data['order_type']))
+            $latToCheck = $data['latitude'];
+            $lngToCheck = $data['longitude'];
+        }
+
+        $currentOrderType = $data['order_type'] ?? $cart->order_type;
+        if (isset($data['order_type'])) {
             $updateData['order_type'] = $data['order_type'];
+        }
+
+        if ($latToCheck && $lngToCheck) {
+            $this->checkDeliveryRadius($cart->restaurant_id, $latToCheck, $lngToCheck, $currentOrderType);
+        }
 
         if (isset($data['order_instructions']))
             $updateData['order_instructions'] = $data['order_instructions'];
@@ -359,7 +407,7 @@ class CartService
         $packagingCharge = $totalQuantity * $perItemPackagingCharge;
 
         $platformFee = $subtotal > 0 ? (float) ($settings['platform_fee'] ?? 0) : 0;
-        
+
         $surgeFee = $subtotal > 0 ? (float) ($settings['surge_fee'] ?? 0) : 0;
 
         $deliveryCharge = $this->calculateDeliveryCharge($cart, $settings, $subtotal);
@@ -378,12 +426,12 @@ class CartService
             $deliveryCharge = 0;
             $packagingCharge = 0;
             $platformFee = 0;
-            $surgeFee = 0; 
+            $surgeFee = 0;
             $gstAmount = 0;
             $largeOrderFee = 0;
             $tipAmount = 0;
         } else {
-        
+
             $total = max(0, $taxableAmount + $gstAmount + $deliveryCharge + $packagingCharge + $platformFee + $surgeFee + $largeOrderFee + $tipAmount);
         }
 
@@ -394,7 +442,7 @@ class CartService
             'delivery_charge' => round($deliveryCharge, 2),
             'packing_charge' => round($packagingCharge, 2),
             'platform_fee' => round($platformFee, 2),
-            'surge_fee' => round($surgeFee, 2), 
+            'surge_fee' => round($surgeFee, 2),
             'large_order_fee' => round($largeOrderFee, 2),
             'tip_amount' => round($tipAmount, 2),
             'total' => round($total, 2),
@@ -538,5 +586,36 @@ class CartService
         $cart->setAttribute('sync_messages', $syncMessages);
 
         return $hasChanges;
+    }
+    private function checkDeliveryRadius($restaurantId, $latitude, $longitude, $orderType = OrderTypeStatus::DELIVERY)
+    {
+        if ($orderType == OrderTypeStatus::PICKUP) {
+            return true; 
+        }
+
+        if (!$latitude || !$longitude) {
+            return true; 
+        }
+
+        $restaurant = Restaurant::find($restaurantId);
+        if (!$restaurant || !$restaurant->lat || !$restaurant->long) {
+            return true;
+        }
+
+        $distance = $this->calculateDistance(
+            (float) $latitude,
+            (float) $longitude,
+            (float) $restaurant->lat,
+            (float) $restaurant->long
+        );
+
+        $settings = Setting::pluck('value', 'key');
+        $maxRadius = (float) ($settings['max_delivery_radius'] ?? 10);
+
+        if ($distance > $maxRadius) {
+            throw new Exception("Sorry! This restaurant does not deliver to your location. Maximum delivery radius is {$maxRadius} km, but you are {$distance} km away.", 422);
+        }
+
+        return true;
     }
 }

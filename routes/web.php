@@ -66,11 +66,12 @@ use App\Http\Controllers\Admin\ExpenseController;
 use App\Http\Controllers\Admin\RestaurantController as RestaurantsController;
 use App\Http\Controllers\Admin\CashOnDeliveryOrderBalanceReportController;
 use App\Http\Controllers\Admin\ReservationController as ReservationsController;
-
+use App\Http\Controllers\Frontend\AppRedirectController;
 
 Route::group(['middleware' => ['installed', 'license-activate']], function () {
     Auth::routes(['verify' => false]);
 });
+
 
 Route::group(['middleware' => ['installed', 'not-verified']], function () {
     Route::get('/license-activate', [PurchaseCodeController::class, 'licenseCodeActivate'])->name('license-activate');
@@ -87,7 +88,7 @@ Route::group(['middleware' => ['installed', 'license-activate']], function () {
     Route::get('/home', [HomeController::class, 'index'])->name('home1');
     Route::get('/', [HomeController::class, 'index'])->name('home');
     Route::get('restaurant/{restaurant}', [RestaurantController::class, 'show'])->name('restaurant.show');
-
+    Route::get('/download', [AppRedirectController::class, 'handleRedirect'])->name('app.redirect');
 
     Route::post('restaurant/ratings', [RestaurantController::class, 'Ratings'])->name('restaurant.ratings-update')->middleware('auth');
 
@@ -396,4 +397,6 @@ Route::group(['prefix' => 'admin', 'middleware' => ['auth', 'installed', 'licens
 
     // role module
     Route::get('get-roles', [RoleController::class, 'getroles'])->name('roles.get-roles');
+
+
 });
