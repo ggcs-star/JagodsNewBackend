@@ -34,12 +34,21 @@ class CartService
         return null;
     }
 
-    public function addToCart(array $data, $userId)
+   public function addToCart(array $data, $userId)
     {
         $menuItem = MenuItem::find($data['menu_id']);
 
         if (!$menuItem) {
             throw new Exception('Menu item not found', 404);
+        }
+
+        if (isset($data['address_id'])) {
+            $address = Address::find($data['address_id']);
+            if ($address) {
+                $this->checkDeliveryRadius($menuItem->restaurant_id, $address->latitude, $address->longitude, OrderTypeStatus::DELIVERY);
+            }
+        } elseif (isset($data['latitude']) && isset($data['longitude'])) {
+             $this->checkDeliveryRadius($menuItem->restaurant_id, $data['latitude'], $data['longitude'], OrderTypeStatus::DELIVERY);
         }
 
         $cart = $this->firstOrCreateCart(
@@ -146,15 +155,32 @@ class CartService
         $cart = $this->getCartOrFail($userId);
 
         $updateData = [];
+        $latToCheck = null;
+        $lngToCheck = null;
 
-        if (isset($data['address_id']))
+        if (isset($data['address_id'])) {
             $updateData['address_id'] = $data['address_id'];
-        if (isset($data['latitude']))
+            $address = Address::find($data['address_id']);
+            if ($address) {
+                $latToCheck = $address->latitude;
+                $lngToCheck = $address->longitude;
+            }
+        } 
+        else if (isset($data['latitude']) && isset($data['longitude'])) {
             $updateData['latitude'] = $data['latitude'];
-        if (isset($data['longitude']))
             $updateData['longitude'] = $data['longitude'];
-        if (isset($data['order_type']))
+            $latToCheck = $data['latitude'];
+            $lngToCheck = $data['longitude'];
+        }
+
+        $currentOrderType = $data['order_type'] ?? $cart->order_type;
+        if (isset($data['order_type'])) {
             $updateData['order_type'] = $data['order_type'];
+        }
+
+        if ($latToCheck && $lngToCheck) {
+            $this->checkDeliveryRadius($cart->restaurant_id, $latToCheck, $lngToCheck, $currentOrderType);
+        }
 
         if (isset($data['order_instructions']))
             $updateData['order_instructions'] = $data['order_instructions'];
@@ -560,5 +586,36 @@ class CartService
         $cart->setAttribute('sync_messages', $syncMessages);
 
         return $hasChanges;
+    }
+    private function checkDeliveryRadius($restaurantId, $latitude, $longitude, $orderType = OrderTypeStatus::DELIVERY)
+    {
+        if ($orderType == OrderTypeStatus::PICKUP) {
+            return true; 
+        }
+
+        if (!$latitude || !$longitude) {
+            return true; 
+        }
+
+        $restaurant = Restaurant::find($restaurantId);
+        if (!$restaurant || !$restaurant->lat || !$restaurant->long) {
+            return true;
+        }
+
+        $distance = $this->calculateDistance(
+            (float) $latitude,
+            (float) $longitude,
+            (float) $restaurant->lat,
+            (float) $restaurant->long
+        );
+
+        $settings = Setting::pluck('value', 'key');
+        $maxRadius = (float) ($settings['max_delivery_radius'] ?? 10);
+
+        if ($distance > $maxRadius) {
+            throw new Exception("Sorry! This restaurant does not deliver to your location. Maximum delivery radius is {$maxRadius} km, but you are {$distance} km away.", 422);
+        }
+
+        return true;
     }
 }

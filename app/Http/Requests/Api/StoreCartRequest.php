@@ -16,7 +16,7 @@ class StoreCartRequest extends FormRequest
         return [
             'menu_id' => 'required|numeric|exists:menu_items,id',
             'variation_id' => 'nullable|numeric|exists:menu_item_variations,id',
-            'address_id' => 'required|numeric|exists:addresses,id',
+            'address_id' => 'nullable|numeric|exists:addresses,id',
             'options' => 'nullable|array',
             'options.*' => 'nullable|numeric|exists:menu_item_options,id',
             'instructions' => 'nullable|string|max:500',

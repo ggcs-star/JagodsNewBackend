@@ -202,7 +202,7 @@
                     
                     <div class="form-col-12 sm:form-col-6">
                         <label class="db-field-title required" for="free_delivery_radius">{{ __('setting.free_delivery_radius') }}</label>
-                        <input name="free_delivery_radius" id="free_delivery_radius" type="number" min="0"
+                        <input name="free_delivery_radius" id="free_delivery_radius" type="number" min="0" step="0.01"
                             class="db-field-control @error('free_delivery_radius') invalid @enderror"
                             value="{{ old('free_delivery_radius', setting('free_delivery_radius')) }}">
                         @error('free_delivery_radius')
@@ -212,7 +212,7 @@
 
                     <div class="form-col-12 sm:form-col-6">
                         <label class="db-field-title required" for="basic_delivery_charge">{{ __('setting.basic_delivery_charge') }}</label>
-                        <input name="basic_delivery_charge" id="basic_delivery_charge" type="number"
+                        <input name="basic_delivery_charge" id="basic_delivery_charge" type="number" step="0.01"
                             class="db-field-control @error('basic_delivery_charge') invalid @enderror"
                             value="{{ old('basic_delivery_charge', setting('basic_delivery_charge')) }}">
                         @error('basic_delivery_charge')
@@ -222,7 +222,7 @@
 
                     <div class="form-col-12 sm:form-col-6">
                         <label class="db-field-title required" for="charge_per_kilo">{{ __('setting.charge_per_kilo') }}</label>
-                        <input name="charge_per_kilo" id="charge_per_kilo" type="number" min="0" max="100"
+                        <input name="charge_per_kilo" id="charge_per_kilo" type="number" min="0" max="100" step="0.01"
                             class="db-field-control @error('charge_per_kilo') invalid @enderror"
                             value="{{ old('charge_per_kilo', setting('charge_per_kilo')) }}">
                         @error('charge_per_kilo')
@@ -232,7 +232,7 @@
 
                     <div class="form-col-12 sm:form-col-6">
                         <label class="db-field-title required" for="high_order_amount_limit">{{ __('setting.high_order_amount_limit') }}</label>
-                        <input name="high_order_amount_limit" id="high_order_amount_limit" type="number" min="0" 
+                        <input name="high_order_amount_limit" id="high_order_amount_limit" type="number" min="0" step="0.01"
                             class="db-field-control @error('high_order_amount_limit') invalid @enderror"
                             value="{{ old('high_order_amount_limit', setting('high_order_amount_limit')) }}">
                         @error('high_order_amount_limit')
@@ -242,7 +242,7 @@
 
                     <div class="form-col-12 sm:form-col-6">
                         <label class="db-field-title required" for="high_order_delivery_charge">{{ __('setting.high_order_delivery_charge') }}</label>
-                        <input name="high_order_delivery_charge" id="high_order_delivery_charge" type="number" min="0" max="100"
+                        <input name="high_order_delivery_charge" id="high_order_delivery_charge" type="number" min="0" max="100" step="0.01"
                             class="db-field-control @error('high_order_delivery_charge') invalid @enderror"
                             value="{{ old('high_order_delivery_charge', setting('high_order_delivery_charge')) }}">
                         @error('high_order_delivery_charge')
@@ -252,7 +252,7 @@
 
                     <div class="form-col-12 sm:form-col-6">
                         <label class="db-field-title required" for="packaging_charge">{{ __('setting.packaging_charge') }}</label>
-                        <input name="packaging_charge" id="packaging_charge" type="number" min="0" max="100"
+                        <input name="packaging_charge" id="packaging_charge" type="number" min="0" max="100" step="0.01"
                             class="db-field-control @error('packaging_charge') invalid @enderror"
                             value="{{ old('packaging_charge', setting('packaging_charge')) }}">
                         @error('packaging_charge')
@@ -262,7 +262,7 @@
 
                     <div class="form-col-12 sm:form-col-6">
                         <label class="db-field-title required" for="handling_charge">{{ __('setting.handling_charge') }}</label>
-                        <input name="handling_charge" id="handling_charge" type="number" min="0" max="100"
+                        <input name="handling_charge" id="handling_charge" type="number" min="0" max="100" step="0.01"
                             class="db-field-control @error('handling_charge') invalid @enderror"
                             value="{{ old('handling_charge', setting('handling_charge')) }}">
                         @error('handling_charge')
@@ -272,14 +272,43 @@
 
                     <div class="form-col-12 sm:form-col-6">
                         <label class="db-field-title required" for="surge_fee">{{ __('setting.surge_fee') }}</label>
-                        <input name="surge_fee" id="surge_fee" type="number" min="0" max="100"
+                        <input name="surge_fee" id="surge_fee" type="number" min="0" max="100" step="0.01"
                             class="db-field-control @error('surge_fee') invalid @enderror"
                             value="{{ old('surge_fee', setting('surge_fee')) }}">
                         @error('surge_fee')
                             <small class="db-field-alert">{{ $message }}</small>
                         @enderror
                     </div>
-                
+
+                    <div class="form-col-12 sm:form-col-6">
+                        <label class="db-field-title required" for="max_delivery_radius">{{ __('setting.max_delivery_radius') }}</label>
+                        <input name="max_delivery_radius" id="max_delivery_radius" type="number" min="0" step="0.01"
+                            class="db-field-control @error('max_delivery_radius') invalid @enderror"
+                            value="{{ old('max_delivery_radius', setting('max_delivery_radius')) }}">
+                        @error('max_delivery_radius')
+                            <small class="db-field-alert">{{ $message }}</small>
+                        @enderror
+                    </div>
+
+                    <div class="form-col-12 sm:form-col-6">
+                        <label class="db-field-title required" for="large_order_fee">{{ __('setting.large_order_fee') }}</label>
+                        <input name="large_order_fee" id="large_order_fee" type="number" min="0" step="0.01"
+                            class="db-field-control @error('large_order_fee') invalid @enderror"
+                            value="{{ old('large_order_fee', setting('large_order_fee')) }}">
+                        @error('large_order_fee')
+                            <small class="db-field-alert">{{ $message }}</small>
+                        @enderror
+                    </div>
+
+                    <div class="form-col-12 sm:form-col-6">
+                        <label class="db-field-title required" for="platform_fee">{{ __('setting.platform_fee') }}</label>
+                        <input name="platform_fee" id="platform_fee" type="number" min="0" step="0.01"
+                            class="db-field-control @error('platform_fee') invalid @enderror"
+                            value="{{ old('platform_fee', setting('platform_fee')) }}">
+                        @error('platform_fee')
+                            <small class="db-field-alert">{{ $message }}</small>
+                        @enderror
+                    </div>
                     <div class="form-col-12 sm:form-col-6">
                         <label class="db-field-title" for="ios_app_link">{{ __('levels.ios_app_link') }}</label>
                         <input name="ios_app_link" id="ios_app_link" type="text"
@@ -338,7 +367,6 @@
                         @enderror
                     </div>
 
-                    <!-- Submit Button aligned full width at the bottom -->
                     <div class="form-col-12 mt-4">
                         <button class="db-btn text-white bg-primary">
                             <i class="fa-solid fa-circle-check"></i>
