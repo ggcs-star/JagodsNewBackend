@@ -10,11 +10,13 @@
     @endif
 
     <style>
-
+.app{
+    background:#f8f9fa;
+}
         .page-redirect-wrapper {
             display: flex;
             align-items: center;
-            
+             background:#f8f9fa;
         }
 
         .download-wrapper-mobile {
@@ -26,6 +28,7 @@
             flex-direction: column;
             text-align: center;
             padding: 20px;
+            
         }
 
         .loader {
@@ -59,12 +62,12 @@
             }
         }
     </style>
-
+<div>
     <div class="page-redirect-wrapper w-100">
 
         @if($device === 'desktop')
             @if (setting('android_app_link') || setting('ios_app_link'))
-                <section class="app section-gap-90 my-auto w-100 bg-white">
+                <section class="app section-gap-90 my-auto w-100 ">
                     <div class="container">
                         <div class="row align-items-center">
                             <div class="col-12 col-sm-6">
@@ -139,9 +142,12 @@
                     </div>
                 </section>
             </div>
+             
         @endif
-    </div>
 
+    </div>
+ @include('frontend.partials.jagdaifoods_franchise_formats')
+</div>
     <script>
         const device = "{{ $device }}";
 
