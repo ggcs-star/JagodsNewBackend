@@ -36,28 +36,43 @@ class CategoryController extends BackendController
 
     public function create()
     {
-        return view('admin.category.create');
+        $categories = Category::where('parent_id', 0)
+            ->orderBy('name')
+            ->get();
+
+        return view('admin.category.create', compact('categories'));
     }
 
 
     public function store(CategoryRequest $request)
     {
-        $category              = new Category;
-        $category->name        = $request->name;
+        $category = new Category;
+        $category->name = $request->name;
         $category->description = $request->description;
-        $category->parent_id   = 0;
-        $category->depth       = 0;
-        $category->left        = 0;
-        $category->right       = 0;
-        $category->status      = $request->status ? $request->status : Status::INACTIVE;
-        $category->save();
+        $category->parent_id = $request->parent_id ?? 0;
 
-        //Store Image Media Libraty Spati
-        if ($request->hasFile('image') && $request->file('image')->isValid()) {
-            $category->addMediaFromRequest('image')->toMediaCollection('categories');
+        if ($category->parent_id == 0) {
+            $category->depth = 0;
+        } else {
+            $parent = Category::find($category->parent_id);
+            $category->depth = $parent ? $parent->depth + 1 : 1;
         }
 
-        return redirect(route('admin.category.index'))->withSuccess('The data inserted successfully.');
+        $category->left = 0;
+        $category->right = 0;
+
+        $category->status = $request->status ?: Status::INACTIVE;
+
+        $category->save();
+
+        if ($request->hasFile('image') && $request->file('image')->isValid()) {
+            $category->addMediaFromRequest('image')
+                ->toMediaCollection('categories');
+        }
+
+        return redirect()
+            ->route('admin.category.index')
+            ->withSuccess('The data inserted successfully.');
     }
 
 
@@ -70,13 +85,13 @@ class CategoryController extends BackendController
 
     public function update(CategoryRequest $request, $id)
     {
-        $category              = Category::owner()->findOrFail($id);
-        $category->name        = $request->name;
+        $category = Category::owner()->findOrFail($id);
+        $category->name = $request->name;
         $category->description = $request->description;
-        $category->parent_id   = 0;
-        $category->depth       = 0;
-        $category->left        = 0;
-        $category->right       = 0;
+        $category->parent_id = 0;
+        $category->depth = 0;
+        $category->left = 0;
+        $category->right = 0;
         $category->save();
 
         if ($request->hasFile('image') && $request->file('image')->isValid()) {
@@ -98,8 +113,8 @@ class CategoryController extends BackendController
     {
         if (request()->ajax()) {
             $queryArray = [];
-            
-            if(!auth()->user()->myrole == UserRole::ADMIN ){
+
+            if (!auth()->user()->myrole == UserRole::ADMIN) {
                 $queryArray['status'] = Status::ACTIVE;
             }
 
@@ -113,10 +128,10 @@ class CategoryController extends BackendController
             $categories = Category::where($queryArray)->descending()->get();
             return Datatables::of($categories)
                 ->addColumn('action', function ($category) {
-                    $button_array           = [];
-                    $button_array['edit']   = ['route' => route('admin.category.edit', $category),'permission' => 'category_edit'];
-                    $button_array['delete'] = ['route' => route('admin.category.destroy', $category),'permission' => 'category_delete'];
-                    
+                    $button_array = [];
+                    $button_array['edit'] = ['route' => route('admin.category.edit', $category), 'permission' => 'category_edit'];
+                    $button_array['delete'] = ['route' => route('admin.category.destroy', $category), 'permission' => 'category_delete'];
+
                     return action_button($button_array);
                 })
                 ->editColumn('status', function ($category) {
