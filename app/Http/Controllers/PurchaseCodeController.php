@@ -21,6 +21,7 @@ class PurchaseCodeController extends Controller
 
     public function action(PurchaseCodeRequest $request)
     {
+        // dd("df");
         // Check purchase code
         $purchase_code_data = $this->purchaseCodeChecker($request);
 
@@ -38,26 +39,37 @@ class PurchaseCodeController extends Controller
      * @param Request $request
      * @return false|mixed|string
      */
-    private function purchaseCodeChecker(Request $request)
-    {
-
-        try {
-            $payload = [
-                'license_code' => $request->get('purchase_code'),
-                'product_id'   => config('installer.itemId'),
-                'domain'       => domain(url('')),
-                'purpose'      => 'install',
-                'version'      => config('installer.item_version')
-            ];
-
-
-            $apiUrl = config('installer.licenseCodeCheckerUrl');
-            $response = Http::post($apiUrl.'/api/check-installer-license',$payload);
-            return RequestHandler::get_data($response);
-        } catch( \Exception $exception ) {
-            return (object)['status' => false, 'message' => $exception->getMessage()];
-        }
+  private function purchaseCodeChecker(Request $request)
+{
+    if (app()->environment('local')) {
+        return (object) [
+            'status' => true,
+            'message' => 'Local testing',
+            'data' => []
+        ];
     }
+
+    try {
+        $payload = [
+            'license_code' => $request->get('purchase_code'),
+            'product_id'   => config('installer.itemId'),
+            'domain'       => domain(url('')),
+            'purpose'      => 'install',
+            'version'      => config('installer.item_version')
+        ];
+
+        $apiUrl = config('installer.licenseCodeCheckerUrl');
+        $response = Http::post($apiUrl.'/api/check-installer-license', $payload);
+
+        return RequestHandler::get_data($response);
+    } catch (\Exception $exception) {
+        return (object)[
+            'status' => false,
+            'message' => $exception->getMessage()
+        ];
+    }
+}
+
 
     public function licenseCodeActivate(Request $request)
     {

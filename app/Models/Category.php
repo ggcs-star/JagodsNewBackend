@@ -15,14 +15,27 @@ class Category extends BaseModel implements HasMedia
 {
     use HasSlug, WatchableTrait, InteractsWithMedia;
 
-    protected $table       = 'categories';
-    protected $auditColumn       = true;
-    protected $fillable    = ['name', 'slug', 'description', 'status', 'requested'];
+    protected $table = 'categories';
+    protected $auditColumn = true;
+    protected $fillable = ['name', 'slug', 'description', 'status', 'requested', 'parent_id'];
     protected $casts = [
         'status' => 'int',
         'requested' => 'int',
     ];
 
+    public function parent()
+    {
+        return $this->belongsTo(Category::class, 'parent_id');
+    }
+
+    public function children()
+    {
+        return $this->hasMany(Category::class, 'parent_id');
+    }
+    public function getParentNameAttribute()
+    {
+        return $this->parent?->name ?? '-';
+    }
     public function getSlugOptions(): SlugOptions
     {
         return SlugOptions::create()
@@ -47,11 +60,11 @@ class Category extends BaseModel implements HasMedia
 
     public function OnModelCreating()
     {
-        $roleID          = auth()->user()->myrole ?? 0;
+        $roleID = auth()->user()->myrole ?? 0;
         $this->requested = CategoryRequested::NON_REQUESTED;
         if ($roleID > 1) {
             $this->requested = CategoryRequested::REQUESTED;
-            $this->status    = CategoryStatus::INACTIVE;
+            $this->status = CategoryStatus::INACTIVE;
         }
     }
 

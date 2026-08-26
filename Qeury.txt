@@ -366,3 +366,18 @@ ON DELETE SET NULL;
 ALTER TABLE restaurants
 ADD COLUMN avg_rating DECIMAL(3,1) NOT NULL DEFAULT 0.0 AFTER status,
 ADD COLUMN total_reviews INT UNSIGNED NOT NULL DEFAULT 0 AFTER avg_rating;
+
+ALTER TABLE carts
+ADD COLUMN platform_fee DECIMAL(10,2) NOT NULL DEFAULT 0.00
+AFTER packing_charge;
+
+ALTER TABLE carts
+ADD COLUMN large_order_fee DECIMAL(10,2) NOT NULL DEFAULT 0.00
+AFTER platform_fee;
+
+ALTER TABLE carts
+ADD COLUMN sync_messages JSON NULL;
+
+
+ALTER TABLE orders
+ADD COLUMN order_instructions TEXT NULL AFTER total;

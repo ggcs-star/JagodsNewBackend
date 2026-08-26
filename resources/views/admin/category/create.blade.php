@@ -30,7 +30,29 @@
 								<small class="db-field-alert">{{ $message }}</small>
 								@enderror
 							</div>
-							
+							<div class="form-col-12 sm:form-col-6 md:form-col-4">
+    <label class="db-field-title">
+        Parent Category
+    </label>
+
+    <div class="db-field-down-arrow">
+        <select name="parent_id" class="db-field-control @error('parent_id') invalid @enderror">
+            <option value="">Main Category</option>
+
+            @foreach($categories as $category)
+                <option
+                    value="{{ $category->id }}"
+                    {{ old('parent_id') == $category->id ? 'selected' : '' }}>
+                    {{ $category->name }}
+                </option>
+            @endforeach
+        </select>
+    </div>
+
+    @error('parent_id')
+        <small class="db-field-alert">{{ $message }}</small>
+    @enderror
+</div>
 							@if(auth()->user()->myrole == 1)
 							<div class="form-col-12 sm:form-col-6 md:form-col-4">
 								<label class="db-field-title required">{{ __('levels.status') }}</label>
